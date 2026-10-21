@@ -8,6 +8,7 @@ struct ActiveConnection: Codable {
     let deviceID: String
     var defaultWorkspace: Workspace?
     var allowedWorkspaces: [Workspace]
+    var askAvailable: Bool?
     let expiresAt: String
 }
 

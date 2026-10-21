@@ -7,8 +7,9 @@ public struct APIError: Error, Equatable, Sendable {
     public let code: String
     public let status: Int
     public let retryable: Bool
-    public init(code: String, status: Int = 0, retryable: Bool = false) {
-        self.code = code; self.status = status; self.retryable = retryable
+    public let retryAfterUntil: Date?
+    public init(code: String, status: Int = 0, retryable: Bool = false, retryAfterUntil: Date? = nil) {
+        self.code = code; self.status = status; self.retryable = retryable; self.retryAfterUntil = retryAfterUntil
     }
 }
 
@@ -77,15 +78,51 @@ public final class APIClient: @unchecked Sendable {
     public func me(secret: String) async throws -> DeviceIdentityResponse {
         try await request("/api/v1/watch/me", secret: secret)
     }
-    public func feed(secret: String) async throws -> FeedResponse {
-        try await request("/api/v1/watch/feed", secret: secret)
+    public func feed(secret: String, cursor: String? = nil) async throws -> FeedResponse {
+        var parts = URLComponents()
+        parts.path = "/api/v1/watch/feed"
+        parts.queryItems = [URLQueryItem(name: "limit", value: "20")]
+        if let cursor {
+            guard cursor.utf8.count <= 2048 else { throw APIError(code: "INVALID_CURSOR") }
+            parts.queryItems?.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+        return try await request(parts.string!, secret: secret)
     }
     public func capture(_ item: OutboxItem, secret: String) async throws -> CaptureReceipt {
-        guard item.identity.backendOrigin == origin, item.state == .submissionUnknown else {
+        guard item.operation == "capture", item.identity.backendOrigin == origin, item.state == .submissionUnknown else {
             throw WatchCoreError.identityChanged
         }
         return try await request("/api/v1/watch/captures", method: "POST", secret: secret,
             body: item.requestBody, idempotencyKey: item.clientRequestID.uuidString.lowercased())
+    }
+
+    public func ask(_ item: OutboxItem, secret: String) async throws -> AskReceipt {
+        guard item.operation == "ask", item.identity.backendOrigin == origin, item.state == .submissionUnknown else {
+            throw WatchCoreError.identityChanged
+        }
+        return try await request("/api/v1/watch/asks", method: "POST", secret: secret,
+            body: item.requestBody, idempotencyKey: item.clientRequestID.uuidString.lowercased())
+    }
+    public func jobStatus(id: String, secret: String) async throws -> JobStatus {
+        try validateJobID(id)
+        let result: JobStatus = try await request("/api/v1/watch/jobs/\(id)", secret: secret)
+        guard result.schemaVersion == "1", result.jobID == id else { throw APIError(code: "INVALID_RESPONSE") }
+        return result
+    }
+    public func jobBrief(id: String, secret: String) async throws -> BriefResponse {
+        try validateJobID(id)
+        let result: BriefResponse = try await request("/api/v1/watch/jobs/\(id)/brief", secret: secret)
+        if case .ready(let brief) = result {
+            guard brief.schemaVersion == "1", brief.jobID == id, brief.watchBrief.bullets.count <= 3,
+                  brief.sourceCount >= 0 else { throw APIError(code: "INVALID_RESPONSE") }
+        }
+        return result
+    }
+    private func validateJobID(_ id: String) throws {
+        guard id.utf8.count == 40, id.hasPrefix("job_"),
+              UUID(uuidString: String(id.dropFirst(4)))?.uuidString.lowercased() == String(id.dropFirst(4)) else {
+            throw APIError(code: "INVALID_JOB_ID")
+        }
     }
 
     private func request<Response: Decodable>(_ path: String, method: String = "GET", secret: String? = nil,
@@ -107,7 +144,8 @@ public final class APIClient: @unchecked Sendable {
             let code = envelope?.error.code ?? "HTTP_\(http.statusCode)"
             // Only structured codes leave this layer, never raw upstream bodies or credentials.
             throw APIError(code: code, status: http.statusCode,
-                retryable: envelope?.error.retryable ?? (http.statusCode == 429 || http.statusCode >= 500))
+                retryable: envelope?.error.retryable ?? (http.statusCode == 429 || http.statusCode >= 500),
+                retryAfterUntil: http.statusCode == 429 ? RetryAfter.deadline(http.value(forHTTPHeaderField: "Retry-After")) : nil)
         }
         guard data.count <= 1_048_576 else { throw APIError(code: "RESPONSE_TOO_LARGE") }
         do { return try JSONDecoder().decode(Response.self, from: data) }

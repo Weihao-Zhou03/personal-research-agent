@@ -2,7 +2,7 @@ import Foundation
 
 public enum WatchCoreError: Error, Equatable {
     case invalidOrigin, invalidText, textTooLong, capacityReached, duplicateRequest
-    case invalidState, missingItem, identityChanged, invalidAcknowledgement, unsupportedSchema
+    case invalidState, missingItem, identityChanged, invalidAcknowledgement, unsupportedSchema, rateLimited
 }
 
 public struct BackendIdentity: Codable, Equatable, Sendable {
@@ -41,6 +41,76 @@ public struct CapturePayload: Codable, Equatable, Sendable {
     }
     public init(workspaceID: String, text: String, createdAtClient: String) {
         self.workspaceID = workspaceID; self.text = text; self.createdAtClient = createdAtClient
+    }
+}
+
+public struct AskPayload: Codable, Equatable, Sendable {
+    public let workspaceID: String
+    public let question: String
+    public let createdAtClient: String
+    enum CodingKeys: String, CodingKey { case workspaceID = "workspace_id", question, createdAtClient = "created_at_client" }
+    public init(workspaceID: String, question: String, createdAtClient: String) {
+        self.workspaceID = workspaceID; self.question = question; self.createdAtClient = createdAtClient
+    }
+}
+
+public struct AskReceipt: Codable, Sendable {
+    public let schemaVersion: String
+    public let jobID: String
+    public let status: String
+    public let workspaceID: String
+    public let corpusRevisionID: String?
+    public let acceptedAt: String
+    public let pollAfterSeconds: Int
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", jobID = "job_id", status, workspaceID = "workspace_id"
+        case corpusRevisionID = "corpus_revision_id", acceptedAt = "accepted_at", pollAfterSeconds = "poll_after_seconds"
+    }
+}
+
+public struct JobStatus: Codable, Sendable {
+    public struct Failure: Codable, Sendable { public let code: String; public let message: String; public let retryable: Bool }
+    public let schemaVersion: String
+    public let jobID: String
+    public let status: String
+    public let stage: String?
+    public let error: Failure?
+    public let briefReady: Bool
+    public var terminal: Bool { ["completed", "failed", "cancelled", "needs_attention"].contains(status) }
+    enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", jobID = "job_id", status, stage, error, briefReady = "brief_ready" }
+}
+
+public struct BriefResult: Codable, Sendable {
+    public struct WatchBrief: Codable, Sendable {
+        public struct Bullet: Codable, Sendable {
+            public let text: String
+            public let citationIDs: [String]
+            enum CodingKeys: String, CodingKey { case text, citationIDs = "citation_ids" }
+        }
+        public let headline: String
+        public let bullets: [Bullet]
+    }
+    public let schemaVersion: String
+    public let jobID: String
+    public let resultRevision: Int
+    public let answerStatus: String
+    public let watchBrief: WatchBrief
+    public let sourceCount: Int
+    public let updatedAt: String
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", jobID = "job_id", resultRevision = "result_revision", answerStatus = "answer_status"
+        case watchBrief = "watch_brief", sourceCount = "source_count", updatedAt = "updated_at"
+    }
+}
+
+public enum BriefResponse: Decodable, Sendable {
+    case notReady
+    case ready(BriefResult)
+    private enum CodingKeys: String, CodingKey { case status }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        if try values.decodeIfPresent(String.self, forKey: .status) == "not_ready" { self = .notReady }
+        else { self = .ready(try BriefResult(from: decoder)) }
     }
 }
 

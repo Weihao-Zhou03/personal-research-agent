@@ -27,7 +27,10 @@ struct HomeView: View {
                         Text(model.workspace?.name ?? "请先选择空间").font(.headline)
                         NavigationLink("记灵感", destination: CaptureView())
                             .disabled(model.workspace == nil)
-                        NavigationLink("最近记录", destination: FeedView())
+                        NavigationLink("问资料", destination: CaptureView(operation: "ask"))
+                            .disabled(model.workspace == nil || !model.askAvailable)
+                        NavigationLink("看简报", destination: FeedView())
+                        if !model.askAvailable { Text("资料问答暂未就绪").font(.footnote).foregroundStyle(.secondary) }
                     }
                 } else {
                     Section { NavigationLink("连接研究资料库", destination: ConnectionView()) }
@@ -44,25 +47,28 @@ struct HomeView: View {
 }
 
 struct CaptureView: View {
+    var operation = "capture"
     @EnvironmentObject private var model: WatchModel
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var confirming = false
     @State private var saving = false
+    private var isAsk: Bool { operation == "ask" }
+    private var limit: Int { isAsk ? 1000 : 4000 }
     var body: some View {
         Form {
             Text("空间：\(model.workspace?.name ?? "未选择")").font(.footnote)
-            TextField("输入灵感", text: $text, axis: .vertical)
-                .accessibilityLabel("灵感正文，使用系统文字输入")
-            if text.unicodeScalars.count > 4000 { Text("单条最多4000字，请分条保存").foregroundStyle(.orange) }
+            TextField(isAsk ? "输入资料问题" : "输入灵感", text: $text, axis: .vertical)
+                .accessibilityLabel(isAsk ? "问题，使用系统文字输入" : "灵感正文，使用系统文字输入")
+            if text.unicodeScalars.count > limit { Text("单条最多\(limit)字，请缩短内容").foregroundStyle(.orange) }
             Button("核对并保存") { confirming = true }
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.unicodeScalars.count > 4000)
-        }.navigationTitle("记灵感")
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.unicodeScalars.count > limit)
+        }.navigationTitle(isAsk ? "问资料" : "记灵感")
         .sheet(isPresented: $confirming) {
             ScrollView {
                 Text(model.workspace?.name ?? "未选择").font(.headline)
                 Text(text).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical)
-                Text("先保存在手表，再尝试上传。此条原文不会调用模型。").font(.footnote)
+                Text(isAsk ? "先保存在手表，再提交研究任务。请稍后查看有来源的简报。" : "先保存在手表，再尝试上传。此条原文不会调用模型。").font(.footnote)
                 Button("确认保存") {
                     guard !saving else { return }
                     // Set synchronously before creating the Task so two rapid taps cannot
@@ -71,7 +77,7 @@ struct CaptureView: View {
                     let confirmedText = text
                     Task {
                         defer { saving = false }
-                        if await model.saveCapture(confirmedText) {
+                        if await model.saveCapture(confirmedText, operation: operation) {
                             confirming = false; dismiss(); await model.sync()
                         }
                     }
@@ -90,6 +96,7 @@ struct OutboxView: View {
             ForEach(model.items.filter { $0.state != .acknowledged }) { item in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.workspaceNameAtCreation).font(.headline)
+                    Text(item.operation == "ask" ? "资料问题" : "灵感").font(.caption2)
                     Text(item.payload.text)
                     if item.identity != model.active?.identity {
                         Text("原连接的内容，已冻结").foregroundStyle(.orange)
@@ -115,12 +122,58 @@ struct FeedView: View {
             if let date = model.feedDate { Text("缓存更新 \(date.formatted(date: .abbreviated, time: .shortened))").font(.footnote) }
             if model.feed.isEmpty { Text("还没有已同步记录").foregroundStyle(.secondary) }
             ForEach(model.feed) { item in
-                VStack(alignment: .leading) {
-                    Text(item.title)
-                    Text(item.status == "saved" ? "已保存到资料库" : item.status).font(.footnote).foregroundStyle(.secondary)
+                if item.type == "ask" {
+                    NavigationLink(destination: JobDetailView(jobID: item.id)) {
+                        VStack(alignment: .leading) { Text(item.title); Text(jobStateText(item.status)).font(.footnote).foregroundStyle(.secondary) }
+                    }
+                } else {
+                    VStack(alignment: .leading) {
+                        Text(item.title)
+                        Text(item.status == "saved" ? "已保存到资料库" : item.status).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
             }
-        }.navigationTitle("最近记录")
+            if model.nextFeedCursor != nil { Button("更早的记录") { Task { await model.loadMoreFeed() } }.disabled(model.busy) }
+        }.navigationTitle("看简报")
+    }
+}
+
+private func jobStateText(_ status: String) -> String {
+    switch status {
+    case "queued": return "已接收，等待处理"
+    case "running": return "正在处理"
+    case "waiting_retry": return "稍后重试"
+    case "completed": return "已完成"
+    case "failed": return "处理失败"
+    case "cancelled": return "已取消"
+    case "needs_attention": return "上次调用结果待核对，请到网页查看"
+    default: return "等待状态更新"
+    }
+}
+
+struct JobDetailView: View {
+    let jobID: String
+    @EnvironmentObject private var model: WatchModel
+    var body: some View {
+        ScrollView {
+            if let brief = model.briefs[jobID] {
+                Text(brief.watchBrief.headline).font(.headline)
+                if brief.answerStatus == "insufficient_evidence" { Text("资料不足").foregroundStyle(.orange) }
+                ForEach(Array(brief.watchBrief.bullets.prefix(3).enumerated()), id: \.offset) { _, bullet in
+                    Text(bullet.text).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 4)
+                }
+                Text("来源 \(brief.sourceCount) · 更新 \(brief.updatedAt)").font(.footnote).foregroundStyle(.secondary)
+                Text("完整结果与证据请在资料库网页的同一任务中查看。").font(.footnote)
+            } else if let status = model.jobStatuses[jobID] {
+                Text(jobStateText(status.status))
+                if let error = status.error { Text(error.message).font(.footnote) }
+                if status.status == "completed" { Text("简报尚未就绪，请稍后刷新。").font(.footnote) }
+            } else { Text("尚无缓存，请刷新真实任务状态。") }
+            if let date = model.jobCacheDate { Text("缓存读取时间 \(date.formatted(date: .omitted, time: .shortened))").font(.caption2) }
+            Button("刷新") { Task { await model.refreshJob(jobID) } }
+            Text("前台短时更新后会停止，可稍后手动查看。").font(.footnote).foregroundStyle(.secondary)
+        }.padding().navigationTitle("任务简报")
+        .task(id: jobID) { await model.pollJob(jobID) }
     }
 }
 
