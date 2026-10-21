@@ -1,8 +1,16 @@
-# Personal Agent · 科研手记与 Watch Capture
+# Personal Agent · 科研手记与 Watch
 
-Watch 分阶段实现已加入，目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。M0A 已通过真实云构建：15项Swift核心测试、Watch模拟器编译、无签名wrapper归档与结构检查成功；后端Windows/Linux各60项测试通过。M1后端、配对管理页与Watch outbox已实现，**真机验收尚未完成**。Capture只保存原文，不调用模型；中文检索、Ask和结构化简报将在M2实现。
+目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。当前代码已加入SQLite原文Capture、中文词法检索、后端持久Ask、结构化简报、人工审阅与确认后ThinkFlow写回。Capture和已完成结果读取不调用模型；Watch不部署模型。M0A已有真实云构建证据，**签名分发、真机验收与常开公网部署仍未完成**；每轮测试、真实服务和设备证据分别记在[验证记录](docs/VERIFICATION.md)。
 
-先看 [阶段交接](PROJECT_HANDOFF.md)、[验证记录](docs/VERIFICATION.md)。隔离运行 Capture 见 [CAPTURE_SETUP.md](docs/CAPTURE_SETUP.md)，Apple 工程与分发说明见 [APPLE_DELIVERY.md](docs/APPLE_DELIVERY.md)。现用 JSON 没有自动迁移，旧研究工作台仍保留。
+先看 [阶段交接](PROJECT_HANDOFF.md)。电脑隔离试用见 [运行与恢复](docs/CAPTURE_SETUP.md)，Linux配置与备份见 [部署说明](deploy/README.md)，Apple工程与分发见 [APPLE_DELIVERY.md](docs/APPLE_DELIVERY.md)。现用JSON没有自动迁移，旧研究工作台仍保留。
+
+## 新研究链路
+
+在隔离SQLite目录初始化管理员并启动后，打开 `/owner`。创建空间，导入TXT/Markdown原文或绑定ThinkFlow并选择真实资料同步，再在同一空间提交问题。结果显示冻结资料、原文位置与hash，缺证据时说明资料不足，不自动搜索互联网。模型服务与密钥在管理员配置中提供；Web临时输入的密钥仅驻内存，重启后可通过私有环境文件或密钥文件重新提供。
+
+任务被后端接受后可以关闭网页或Watch，稍后查看状态与简报。先审阅并修改，再明确选择本地归档或写回ThinkFlow；写回完成必须有真实正文读回核对。同修订复用同一写回意图，新修订可形成新文档。响应结果未知时显示待人工核对，不盲目重新生成或重复创建文档。
+
+Capture原文先独立保存；后台每秒消费待索引意图，索引失败保留原文并允许手动重试，不调用模型。资料与AI生成结果分开，归档不会自动把回答加入事实索引。Ask默认每日50次，每题最多两次生成调用；用量缺失显示unknown。删除任务或空间不重置非敏感用量/每日计数账本，也不会自动清除远端ThinkFlow文档或历史备份。
 
 这是一个不依赖树莓派的 Windows 电脑端原型：从 OpenDCAI/ThinkFlow 选取资料，确认目标后后台整理，审阅结果并追问，最后人工确认写回同一 ThinkFlow 笔记本。也支持直接粘贴材料并存入本地知识库。
 
@@ -84,12 +92,12 @@ powershell.exe -NoProfile -File .\scripts\setup-local-model.ps1
 
 - 旧任务、结果、对话、来源登记和人工确认的知识条目默认保存在 `data/workspace.json`，更新采用临时文件替换。显式迁移后可选择 SQLite，不能双写或空库接管。Capture/设备身份仅使用 SQLite；配置中的服务地址、模型名称会保存，密钥不保存。
 - ThinkFlow 原生资料和文档实际保存在 `data/thinkflow/outputs`，通过目录联接供原版后端访问。备份时停止服务并复制整个 `data`；页面 JSON 导出不包含 ThinkFlow 原始文件与版本目录。
-- 任务按顺序排队。服务运行期间可以关闭页面，稍后再回来查看。电脑睡眠、关机或后端退出后不能继续处理；重启时中断任务会标为失败，需人工重新确认执行。
+- 旧工作台任务按顺序排队；重启时旧中断任务仍标失败，等待人工重跑。新Ask持久保存语料、步骤、租约和尝试记录；未发出生成请求的工作可恢复，已发出但结果未知时保留待核对状态。电脑睡眠、关机或后端退出期间不能执行任务。
 - 本地目录中的资料正文是普通文件，应按自己的文件备份方式管理。知识库页可导出 JSON 备份；当前没有图形化导入恢复功能。
 - 模拟语音是当前无麦克风电脑的默认演示方式，界面不请求麦克风。代码保留了浏览器真实语音识别函数，当前未开放真实收音入口；以后启用时仍需检查浏览器支持、权限与是否调用在线服务。真实收音、识别准确率与说话打断没有在这台电脑上实测。
 - 朗读使用浏览器语音合成，可停止播报；可用中文声音取决于浏览器和系统。它不代表树莓派扬声器与实时语音链路已验证。
 - 当前已接通 ThinkFlow 笔记本、原始资料读取、模型整理和人工确认后的原生文档回写。任务绑定来源编号、SHA-256、句段范围和读取快照；创建任务时重新读取，发现与预览不一致则要求重选。生成不会自动写回，首次确认后锁定该次内容，失败可核对重试。
-- 这次接入没有启用 ThinkFlow 的 embedding 服务或文档 RAG，也没有 BM25 与向量融合重排、Skills 加载器、Plan-and-Execute 或研究关系图。按清单读取所选全文不等于检索增强生成。没有常驻唤醒词、全局热键或硬件设备控制。
+- 新SQLite链路使用版本化Intl.Segmenter分词、FTS5/BM25和限定空间内的短词子串补召回，再将有预算的证据交给云端生成。旧工作台的全文整理路径继续保留。当前没有embedding、向量融合重排、Skills加载器、复杂研究关系图或常驻唤醒词；这些不作为本轮首版必做能力。
 - 树莓派部署、低功耗、远场拾音和截图中的“6 类场景验证”尚未完成，本原型不据此宣称已有硬件验证结果。
 
 ## 开发结构
@@ -102,8 +110,15 @@ lib/thinkflow.mjs          ThinkFlow 原生 API 适配、正文快照与可重�
 lib/store/                SQLite 适配、显式迁移、一致性备份和新目录恢复
 lib/auth/                 管理员会话、设备配对、原文保存与 owner 级幂等
 lib/routes/device-api.mjs  /api/v1 管理端与设备 API，和旧 API 分离
+lib/routes/research-api.mjs  资料、Ask、审阅、归档、备份与就绪状态
+lib/kb/                  不可变来源快照、冻结语料、中文切块与词法检索
+lib/jobs/                持久Ask、租约、尝试、结果修订与非敏感用量账本
+lib/llm/                 云生成结构契约、引用校验、上下文与调用预算
+lib/archive.mjs          人工确认、持久写回意图与核对
 apple/                    SwiftUI Watch、Keychain、持久 outbox 与工程描述
-.github/workflows/        后端检查、Watch 无签名检查与分发 readiness 模板
+.github/workflows/        后端检查、Watch无签名检查与受控分发配置
+deploy/                  单机Linux、systemd、Caddy与备份恢复说明
+eval/                    公开合成中文基准、必要证据与词法评测脚本
 public/                   中文网页界面、模拟输入、任务与知识库、浏览器播报
 test/                     Node 原生测试，使用临时目录与模拟服务隔离验证
 scripts/start.ps1          复用服务或隐藏启动、PID 与进程身份登记
@@ -128,6 +143,6 @@ npm test
 
 `npm test` 不启动真实云端生成，也不依赖树莓派。真实本地模型的生成验证结果由安装脚本另存为 `.runtime/local-model-smoke.json`，该结果只对应当前 Windows 电脑。
 
-原30项测试全部保留；新增 SQLite、认证与 Capture 测试的当前执行结果见 [验证记录](docs/VERIFICATION.md)。早期真实联调验证过 gpt-6-luna 整理与 ThinkFlow 原生文档读写；本轮没有重新调用云模型，不能把历史证据记作 Watch 链路验证。旧启动器历史实测包括复用、登记服务启动/停止及原代理保留；本轮默认不启动 Ollama 的改动经过脚本语法检查，尚未再次执行完整启动/停止演练。
+原30项行为测试继续保留，新增SQLite、认证、中文检索、持久任务、确认写回和备份测试。当前精确SHA、CI、真实云模型评测及真实ThinkFlow读写结果统一见 [验证记录](docs/VERIFICATION.md)，不把合成资料或测试替身当真实模型质量，也不把无签名构建当真机验收。旧启动器历史实测包括复用、登记服务启动/停止及原代理保留；默认不启动Ollama的变更不代表重新验证了全部旧启动路径。
 
 遇到启动问题时，查看 `.runtime/server.stderr.log`、`.runtime/ollama.stderr.log`、`.runtime/thinkflow.stderr.log`、`.runtime/proxy.stderr.log`。端口被未知服务占用时，启动器会保留已有进程；请检查占用情况，不要按端口直接结束其他程序。
