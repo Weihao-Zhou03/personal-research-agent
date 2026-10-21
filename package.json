@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "A local research task inbox and human-reviewed knowledge library",
-  "engines": { "node": ">=22" },
+  "engines": { "node": ">=24.19.0 <25" },
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",

@@ -1,0 +1,20 @@
+[Unit]
+Description=Verified private SQLite backup and bounded retention
+After=personal-research-agent.service
+
+[Service]
+Type=oneshot
+User=personalagent
+Group=personalagent
+WorkingDirectory=/opt/personal-research-agent
+EnvironmentFile=/etc/personal-research-agent-backup.env
+ExecStart=/opt/node-v24.19.0-linux-x64/bin/node scripts/backup-scheduled.mjs --database ${PERSONAL_AGENT_DATABASE} --backup-dir ${PERSONAL_AGENT_BACKUP_DIR} --retain ${PERSONAL_AGENT_BACKUP_RETAIN}
+TimeoutStartSec=600
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/personal-research-agent /var/backups/personal-research-agent
+StandardOutput=journal
+StandardError=journal

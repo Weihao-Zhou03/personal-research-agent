@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "status": "unsigned_help_check_only",
+  "stdout_bytes": 0,
+  "stderr_bytes": 24217,
+  "checks": {
+    "app_store_connect": true,
+    "api_key_authentication": true
+  }
+}

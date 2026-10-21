@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "status": "unsigned_structure_only",
+  "wrapper_bundle_id": "org.ci.personalresearch",
+  "watch_bundle_id": "org.ci.personalresearch.watchkitapp",
+  "version": "0.3.0",
+  "build": "100",
+  "checks": {
+    "watch_only_wrapper": true,
+    "single_target_watch_app": true,
+    "independent": true,
+    "companion_bundle_matches_root": true,
+    "version_matches": true,
+    "build_matches": true,
+    "watch_executable_present": true,
+    "no_legacy_watchkit_extension": true,
+    "expected_root_bundle": true,
+    "expected_watch_bundle": true,
+    "expected_version": true,
+    "expected_build": true,
+    "expected_api_origin": true
+  },
+  "not_verified": [
+    "distribution_signing",
+    "export",
+    "ASC_upload_and_processing",
+    "TestFlight",
+    "real_device"
+  ]
+}

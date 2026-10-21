@@ -1,0 +1,8 @@
+{
+  "schema_version": "1",
+  "request_id": "e1b72d93-cad1-4cbc-aaf8-9cfdad7f403b",
+  "ask_body": {"workspace_id":"ws_fixture","question":"  中文资料中两种方法有哪些区别？\n保留问题🙂  ","created_at_client":"2026-10-21T09:00:00Z"},
+  "ask_receipt": {"schema_version":"1","job_id":"job_01234567-89ab-4cde-8fab-0123456789ab","status":"queued","workspace_id":"ws_fixture","corpus_revision_id":null,"accepted_at":"2026-10-21T09:00:01Z","poll_after_seconds":5},
+  "job_status": {"schema_version":"1","job_id":"job_01234567-89ab-4cde-8fab-0123456789ab","status":"completed","stage":"validated","error":null,"brief_ready":true},
+  "brief": {"schema_version":"1","job_id":"job_01234567-89ab-4cde-8fab-0123456789ab","result_revision":1,"answer_status":"answered","watch_brief":{"headline":"两种方法的资料比较","bullets":[{"text":"结论必须有证据。","citation_ids":["ev_fixture"]}]},"source_count":1,"updated_at":"2026-10-21T09:00:02Z"}
+}

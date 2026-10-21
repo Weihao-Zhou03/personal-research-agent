@@ -1,0 +1,96 @@
+name: Watch signed TestFlight delivery (explicit approval required)
+on:
+  workflow_dispatch:
+    inputs:
+      trusted_sha:
+        description: Reviewed full SHA already on main; never a PR branch
+        required: true
+        type: string
+      approval_sha:
+        description: Repeat that full SHA to authorize signing and ASC upload
+        required: true
+        type: string
+      build_number:
+        description: Increasing CFBundleVersion; checked against actual ASC history
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: watch-testflight-release
+  cancel-in-progress: false
+jobs:
+  signed-delivery:
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+      vars.APPLE_UPLOAD_AUTHORIZED == 'true' && inputs.approval_sha == inputs.trusted_sha
+    runs-on: macos-26
+    environment: apple-testflight
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify reviewed SHA and actual environment reviewer protection
+        env:
+          TRUSTED_SHA: ${{ inputs.trusted_sha }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, urllib.request
+          sha = os.environ['TRUSTED_SHA']
+          if not re.fullmatch('[a-f0-9]{40}', sha): raise SystemExit('TRUSTED_SHA_INVALID')
+          subprocess.run(['git','merge-base','--is-ancestor',sha,'origin/main'],check=True)
+          req = urllib.request.Request('https://api.github.com/repos/' + os.environ['GH_REPOSITORY'] + '/environments/apple-testflight',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})
+          with urllib.request.urlopen(req,timeout=30) as response: environment = json.load(response)
+          gates = [rule for rule in environment.get('protection_rules',[]) if rule.get('type') == 'required_reviewers']
+          if not any(rule.get('reviewers') for rule in gates): raise SystemExit('ENVIRONMENT_REVIEW_GATE_REQUIRED')
+          subprocess.run(['git','checkout','--detach',sha],check=True)
+          PY
+      - name: Prepare and validate non-secret release configuration
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APP_BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
+          WATCH_BUNDLE_ID: ${{ vars.WATCH_BUNDLE_ID }}
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          MARKETING_VERSION: ${{ vars.MARKETING_VERSION }}
+          CURRENT_PROJECT_VERSION: ${{ inputs.build_number }}
+          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+          ASC_INTERNAL_TEST_GROUP_ID: ${{ vars.ASC_INTERNAL_TEST_GROUP_ID }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          fields=['APPLE_TEAM_ID','APP_BUNDLE_ID','WATCH_BUNDLE_ID','API_BASE_URL','MARKETING_VERSION','CURRENT_PROJECT_VERSION','ASC_APP_ID','ASC_KEY_ID','ASC_ISSUER_ID','ASC_INTERNAL_TEST_GROUP_ID']
+          path=pathlib.Path('apple/Generated/release-input.json');path.parent.mkdir(parents=True,exist_ok=True)
+          path.write_text(json.dumps({field:os.environ.get(field,'') for field in fields}),encoding='utf-8')
+          PY
+          python3 scripts/apple-delivery-preflight.py apple/Generated/release-input.json
+      - name: Sign, export, upload and check ASC processing
+        env:
+          TRUSTED_SHA: ${{ inputs.trusted_sha }}
+          APPLE_UPLOAD_AUTHORIZED: ${{ vars.APPLE_UPLOAD_AUTHORIZED }}
+          APPLE_DISTRIBUTION_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+          APPLE_DISTRIBUTION_P12_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          APPLE_PROFILES_BASE64_JSON: ${{ secrets.APPLE_PROFILES_BASE64_JSON }}
+          ASC_API_PRIVATE_KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
+        run: python3 scripts/apple-release.py apple/Generated/release-input.json --trusted-sha "$TRUSTED_SHA" --authorize-upload
+      - name: Always remove temporary signing materials
+        if: always()
+        run: python3 scripts/apple-release-cleanup.py
+      - name: Retain non-secret delivery evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: watch-delivery-evidence-${{ github.run_id }}
+          path: |
+            apple/Generated/release/release-report.json
+            apple/Generated/release/signed-structure.json
+            apple/Generated/release/unsigned/archive-inspection.json
+          if-no-files-found: warn
+          retention-days: 14
