@@ -8,7 +8,7 @@
 
 新增 `apple/` SwiftUI Watch 工程、Foundation 核心包与15项待执行 Swift 测试；固定 XcodeGen2.46.0 与 Xcode26.6，watchOS10，最小 iOS watch-only wrapper 不含完整 companion。无 Apple Secrets 的 macOS CI 会测试核心、编译模拟器并检查无签名 wrapper archive；后端 CI 固定 Node24.19.0，分别在 Windows/Linux 运行。
 
-本机可运行 `npm test` 与 `python scripts/apple-tools-test.py`。Windows 没有 Xcode/Swift；尚未产生真实 Apple build 证据。用户最新决定已明确授权把本轮代码推送到公开仓库的新分支并运行无 Apple Secrets CI；实际 run ID 与结果随后记录。M0A 在真实构建通过前不能标记验收通过。
+本机可运行 `npm test` 与 `python scripts/apple-tools-test.py`。用户已授权并完成公开新分支推送与无 Apple Secrets CI；Windows/Linux各60测试通过（run39562283359）。首轮macOS检查确认Xcode26.6和工程生成可用，但Swift泛型函数内嵌类型编译失败（run39562283553）；已最小修复，等待重跑。M0A在真实构建通过前不能标记验收通过，详见`docs/VERIFICATION.md`。
 
 ## M1：本地后端闭环已验证，Watch 验收待完成
 

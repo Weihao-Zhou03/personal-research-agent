@@ -39,6 +39,11 @@ public struct Diagnostics: Codable, Sendable {
 }
 
 public final class APIClient: @unchecked Sendable {
+    private struct ErrorEnvelope: Decodable {
+        struct Detail: Decodable { let code: String; let retryable: Bool }
+        let error: Detail
+    }
+
     public let origin: String
     private let session: URLSession
     public init(origin: String, session: URLSession? = nil) throws {
@@ -98,11 +103,7 @@ public final class APIClient: @unchecked Sendable {
         catch { throw APIError(code: "NETWORK_UNAVAILABLE", retryable: true) }
         guard let http = response as? HTTPURLResponse else { throw APIError(code: "INVALID_RESPONSE") }
         guard (200..<300).contains(http.statusCode) else {
-            struct Envelope: Decodable {
-                struct Detail: Decodable { let code: String; let retryable: Bool }
-                let error: Detail
-            }
-            let envelope = try? JSONDecoder().decode(Envelope.self, from: data)
+            let envelope = try? JSONDecoder().decode(ErrorEnvelope.self, from: data)
             let code = envelope?.error.code ?? "HTTP_\(http.statusCode)"
             // Only structured codes leave this layer, never raw upstream bodies or credentials.
             throw APIError(code: code, status: http.statusCode,

@@ -1,6 +1,6 @@
 # Apple Watch 工程与真机分发
 
-核查日期：2026-10-21。当前是可审查的工程和分发预检；**没有完成 Apple SDK 编译、签名、上传或真机安装**。开发环境为 Windows，未取得可运行的 macOS/Xcode、Apple 账号配置、签名材料和目标手表信息。本文件不以 Mock、IPA 或模拟器结果代替真机验收。
+核查日期：2026-10-21。当前是可审查的工程和分发预检；**没有完成 Watch SDK 编译、签名、上传或真机安装**。开发环境为 Windows，已获授权通过GitHub macOS runner执行检查；Apple账号配置、签名材料和目标手表信息尚缺。本文件不以Mock、IPA或模拟器结果代替真机验收。
 
 ## M0A 已实现与待验证
 
@@ -43,7 +43,7 @@ wrapper 结构同时依据 Apple 独立 Watch 文档与[固定版 XcodeGen 生�
 bash scripts/apple-check.sh
 ```
 
-无密钥 CI 可由后续经授权提交到远端后触发，或在 GitHub Actions 手动运行 Watch unsigned checks。本轮未推送、未创建远端构建，因此不能填“CI 已通过”。所需关键证据：
+无密钥CI已按用户最新授权推送触发。首轮[run39562283553](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39562283553)确认Xcode/XcodeGen与工程生成可用，Swift核心编译暴露泛型函数内嵌类型错误；最小修复后重跑，不能将此失败记录填为“CI已通过”。所需关键证据：
 
 | 证据 | 产生位置 | 目前结果 |
 | --- | --- | --- |
