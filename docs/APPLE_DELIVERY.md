@@ -1,8 +1,8 @@
 # Apple Watch 工程与真机分发
 
-核查日期：2026-10-21。**M0A真实云构建已通过，签名、上传和真机安装未完成**。已按最新授权通过GitHub macOS runner执行15项Swift核心测试、Watch模拟器编译、无签名wrapper归档和8项结构检查。本机仍为Windows；Apple账号配置、签名材料、真实HTTPS和目标手表信息尚缺。本文件不以Mock、IPA或模拟器结果代替真机验收。
+核查日期：2026-10-21。**M0A真实云构建已通过，签名、上传和真机安装未完成**。最终源码 `5e874f40a208ebee6f1fb11400e9950efaeb0828` 的 [run39573171480](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171480) 实际通过30项Swift测试、17项Python工具测试、Watch模拟器编译、无签名wrapper归档和13项配置/结构检查。本机仍为Windows；Apple账户配置、签名材料、真实HTTPS和目标手表信息尚缺。
 
-后续M1/M2客户端在 `196e2c4bd46461ed65bb892f8dfaca3a752efd41` 的[run39567460679](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39567460679)已核对实际日志：23项Swift、Watch模拟器build、无签名archive与8项结构检查均通过。当前配置注入/签名脚本属于此后改动，不能借用该次成功声称新增发布流程已验证。
+历史196e2c4的run39567460679通过23项；最新结果已覆盖只读Feed、本机清理fencing、配置注入及Xcode帮助stdout/stderr核查。签名/ASC相关工具仍为合成测试，真实Apple账户流程未运行。
 
 ## M0A 已实现与真实构建证据
 
@@ -49,10 +49,10 @@ bash scripts/apple-check.sh
 
 | 证据 | 产生位置 | 目前结果 |
 | --- | --- | --- |
-| Swift 核心测试 | `apple/Generated/check/swift-test.log` | 15项XCTest通过、0失败 |
+| Swift 核心测试 | `apple/Generated/check/swift-test.log` | 最终30项XCTest通过、0失败 |
 | Watch 模拟器 build | `watch-simulator-build.log` | BUILD SUCCEEDED；未做模拟器交互测试 |
 | wrapper archive | `unsigned-archive.log` | ARCHIVE SUCCEEDED；无签名 |
-| 实际嵌入与 bundle 检查 | `archive-inspection.json` | 8项全部true，含可执行文件与版本 |
+| 实际嵌入与 bundle 检查 | `archive-inspection.json` | 最终13项全部true，含API origin/实际配置匹配 |
 | 签名/上传/TestFlight/真机 | 独立发布与人工记录 | 未执行 |
 
 `apple/delivery-manifest.json`列出了已验证结构的target、bundle setting、scheme与archive destination，状态为`unsigned_structure_verified`并绑定源码SHA。当前bundle IDs仍是占位值，发行所需profile按实际Apple配置和签名归档确认，不把数量写死。生成工程不入库，可重复生成。原样结构报告见`docs/ci/watch-archive-39563062510.json`；CI artifact只保留日志/JSON，未上传archive或IPA，详细digest与保留期限见`docs/VERIFICATION.md`。
@@ -103,11 +103,11 @@ python scripts/apple-delivery-preflight.py apple/delivery-local.json
 
 ### 验证与外部阻塞
 
-本轮除静态检查与Python工具5项外，已真实执行macOS Swift核心15项测试、Watch SDK编译与无签名archive检查。Python的合成目录仍只验证检查器拒绝分支；真实归档证据另行保存。Swift中的URLProtocol是网络替身，验证请求路径、字节和状态机，不能替代真实后端/Watch联调。Keychain、中文系统输入、前后台/断网恢复、真实TLS与设备安装均需后续实测。
+最终源码已实际通过macOS Swift核心30项、Python工具17项、Watch SDK编译与无签名archive检查。Python的合成目录仍只验证检查器拒绝分支；真实归档证据另行保存。Swift中的URLProtocol是网络替身，验证请求路径、字节和状态机，不能替代真实后端/Watch联调。Keychain、中文系统输入、前后台/断网恢复、真实TLS与设备安装均需后续实测。
 
 公开新分支与无Apple Secrets CI已授权并完成。剩余外部阻塞：未确认Apple Developer/ASC权限、签名材料和真实bundle IDs；未配置Watch可达HTTPS后端；未提供目标手表/iPhone型号系统；没有TestFlight安装反馈。本机没有macOS不再阻塞M0A云构建；后端和配置说明可继续独立实现。
 
-下一阶段获得当前扩展客户端和配置注入的真实云构建证据；配置真实HTTPS诊断，按实际target/profile映射完成签名验证。取得签名分发所需材料和明确授权后才上传，不扩大未通过M0B的Watch装饰性UI。
+最新扩展客户端和配置注入已取得真实云构建证据；下一步配置真实HTTPS诊断，按实际target/profile映射完成签名验证。取得签名分发所需材料和明确授权后才上传，不扩大未通过M0B的Watch装饰性UI。
 
 ## 非秘密配置与受保护发布的具体操作
 
@@ -133,4 +133,28 @@ python scripts/apple-delivery-preflight.py apple/delivery-local.json
 
 上传成功仍会通过ASC API最多等待约15分钟确认processingState=VALID，必要时按显式内部组ID分配build。上传前及加组前均GET核对组ID、isInternalGroup=true、所属App一致且未开启公开链接，拒绝外部组或跨App目标。处理失败/超时不会伪报TestFlight可安装，也不会自动换号重传；在ASC先核对已接收构建。report在签名、导出、开始上传、接受及处理成功时逐步原子落盘：在途失败保留 `upload_state=submission_unknown`、`uploaded=null`，不能当成“没有上传”盲目重试。最终report仍将compliance、TestFlight可见性与真实手表安装列为另行验证，用户需在ASC处理Missing Compliance并实际安装。[ASC构建状态](https://developer.apple.com/documentation/appstoreconnectapi/build/attributes-data.dictionary)、[内部组属性](https://developer.apple.com/documentation/appstoreconnectapi/betagroup/attributes-data.dictionary)、[内部组关联接口](https://developer.apple.com/documentation/appstoreconnectapi/post-v1-betagroups-_id_-relationships-builds)
 
-本次新增交付工具17项在Windows实测通过，覆盖配置注入拒绝、合成fixture门禁、预期归档不匹配、profile日期/Team/bundle/证书拒绝、JOSE签名格式、清理路径边界、stderr帮助、内部组归属/外部组拒绝、处理中与失败区分、上传未知journal。它们使用合成数据，不代表真实Apple签名或ASC服务通过。Swift客户端23项已在上述196e2c4真实云构建中通过；配置注入改动需要后续对应SHA的新结果。
+本次新增交付工具17项在Windows实测通过，覆盖配置注入拒绝、合成fixture门禁、预期归档不匹配、profile日期/Team/bundle/证书拒绝、JOSE签名格式、清理路径边界、stderr帮助、内部组归属/外部组拒绝、处理中与失败区分、上传未知journal。它们使用合成数据，不代表真实Apple签名或ASC服务通过。最终Swift客户端30项及配置注入已在上述5e874f4的run39573171480通过。实际Xcode26.6/build17F113、Swift6.3.3、watchOS SDK26.5；最低部署版本仍watchOS10。
+
+## 用户在真机上的安装与验收（尚未执行）
+
+当前没有上传到ASC的可安装构建。先完成前述授权、签名、上传、处理及合规操作，再在ASC内部组加入有该App访问权限的测试人员。不要从本轮无签名artifact寻找IPA安装。
+
+1. 在与目标Watch配对的iPhone安装Apple TestFlight，使用被邀请的Apple账户打开邮件中的“View in TestFlight”并接受邀请。
+2. 本工程为watch-only。在iPhone的TestFlight Apps列表找到本App，点击“Install”安装到配对Watch；无需安装一个本项目iPhone companion。若没有构建可选，先核对ASC处理状态、合规、组和测试人员权限，不把“上传已接收”当可安装。
+3. 在Watch打开“研究随记”→“设置与连接”，检查构建配置中的真实HTTPS服务，读取诊断版本与随机request_id并记录。随后发起配对，电脑打开同一HTTPS管理页登录、核对8位码、设备名、时间和空间后批准。
+4. Watch“记灵感”输入中文、空格/换行/emoji，核对确认页原文和空间后发送；Web检查原文一致。再向已同步资料提问，离开Watch页面，稍后回到“看简报”检查后台任务结果。在Web核对来源、编辑、明确确认及写回状态。
+5. 按下表逐项记录，不能只写“安装成功”。TestFlight构建的测试有效期最长90天，后续使用要安排新构建；实际可用天数以TestFlight显示为准。[Apple TestFlight安装说明](https://testflight.apple.com/)
+
+| 真机场景 | 应记录的事实 | 当前结果 |
+| --- | --- | --- |
+| 首次安装/真实HTTPS诊断 | 构建号、Watch/iPhone型号系统、时间、版本、request_id | 未运行 |
+| 中文系统输入/确认保存 | 听写或键盘方式、原文/空格/emoji、空间、Web原文核对 | 未运行 |
+| 飞行模式保存→恢复网络 | 本机待发送保留、固定UUID/空间、恢复后单份Capture | 未运行 |
+| 响应丢失/杀App/重启 | 未知状态保留、相同ID重放、后台只一份数据 | 未运行 |
+| 修改默认空间/删除原空间/撤销 | 旧条目不改投、新请求被拒的状态、原文仍在本机 | 未运行 |
+| 后端/拥有者切换、重新配对 | 缓存身份隔离、旧outbox不自动外发 | 未运行 |
+| Ask离开页面、只读简报/429 | 后端继续、真实状态/引用、读操作0生成、退避不被手动绕过 | 未运行 |
+| 容量/磁盘与显式清理 | 失败可见、未确认原文默认保留；单独确认清理的实际范围 | 未运行 |
+| 卸载/重装、日常使用/电量 | Keychain及本机数据实际行为、不承诺卸载保留原文、实测耗电 | 未运行 |
+
+这张表是待执行记录模板；Swift测试、HTTP模拟设备及macOS编译没有替这些项目勾选通过。设备操作由用户完成，回传非秘密结果后在同一PR后续提交修复和补证据。

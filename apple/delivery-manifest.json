@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "status": "unsigned_structure_verified",
-  "verified_source_sha": "196e2c4bd46461ed65bb892f8dfaca3a752efd41",
-  "evidence_run_url": "https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39567460679",
+  "verified_source_sha": "5e874f40a208ebee6f1fb11400e9950efaeb0828",
+  "evidence_run_url": "https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171480",
   "xcode": "26.6",
   "xcodegen": "2.46.0",
   "runner": "macos-26",
@@ -16,7 +16,7 @@
       "product_type": "com.apple.product-type.application.watchapp2-container",
       "platform": "iOS",
       "bundle_id_setting": "APP_BUNDLE_ID",
-      "placeholder_bundle_id": "org.example.personalresearch",
+      "placeholder_bundle_id": "org.ci.personalresearch",
       "role": "watch-only distribution wrapper, no iPhone executable",
       "profile_mapping": "verify_required_profile_with_signed_archive"
     },
@@ -25,7 +25,7 @@
       "product_type": "com.apple.product-type.application",
       "platform": "watchOS",
       "bundle_id_setting": "WATCH_BUNDLE_ID",
-      "placeholder_bundle_id": "org.example.personalresearch.watchkitapp",
+      "placeholder_bundle_id": "org.ci.personalresearch.watchkitapp",
       "role": "SwiftUI Watch executable embedded in wrapper Watch directory",
       "profile_mapping": "verify_required_profile_with_signed_archive"
     }
@@ -36,5 +36,8 @@
     "Obtain user approval before account resources, payment or upload",
     "Validate signing identities and actual target/profile mappings",
     "Upload, confirm ASC processing and TestFlight installation independently"
-  ]
+  ],
+  "verified_checkout_sha": "7c4f4410e0c9705425857a4c7ca8add1f8e87545",
+  "swift_tests": 30,
+  "structure_checks": 13
 }
