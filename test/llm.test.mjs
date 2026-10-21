@@ -48,7 +48,7 @@ test('Generation uses a conservative UTF8 byte bound and freezes the actual evid
 test('OpenAI adapter records actual usage, marks absent usage unknown and never follows redirects or sends tools',async()=> {
   const c=config(),body=buildGeneration('问题',evidence(),c).body;let request;
   const a=await generate({config:c,body,key:'only-in-memory',fetchImpl:async(url,options)=>{request={url,...options};return reply(result());}});
-  assert.equal(a.usage,null);assert.equal(request.redirect,'error');assert.equal(JSON.parse(request.body).tools,undefined);assert.equal(request.headers.Authorization,'Bearer only-in-memory');
+  assert.equal(a.usage,null);assert.equal(request.redirect,'error');assert.equal(JSON.parse(request.body).tools,undefined);assert.equal(JSON.parse(request.body).store,false);assert.equal(request.headers.Authorization,'Bearer only-in-memory');
   const b=await generate({config:c,body,fetchImpl:async()=>reply(result(),{usage:{prompt_tokens:12,completion_tokens:5,total_tokens:17,secret:'ignored'}})});
   assert.deepEqual(b.usage,{prompt_tokens:12,completion_tokens:5,total_tokens:17});
 });
