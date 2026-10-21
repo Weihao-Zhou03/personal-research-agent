@@ -1,0 +1,32 @@
+name: Watch unsigned checks
+on:
+  push:
+    paths: ['apple/**', 'scripts/apple-*', 'test/fixtures/watch-contract.json', '.github/workflows/watch-check.yml']
+  pull_request:
+    paths: ['apple/**', 'scripts/apple-*', 'test/fixtures/watch-contract.json', '.github/workflows/watch-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: watch-check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unsigned:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Test core, build Watch simulator and inspect unsigned wrapper archive
+        run: bash scripts/apple-check.sh
+      - name: Retain build evidence, not a release package
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: watch-unsigned-evidence-${{ github.run_id }}
+          path: |
+            apple/Generated/check/*.log
+            apple/Generated/check/*.json
+          if-no-files-found: warn
+          retention-days: 14

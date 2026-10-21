@@ -2,10 +2,13 @@ import http from 'node:http';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import * as defaultProcessor from './lib/processor.mjs';
 import { proxyDetected, readProxyKey } from './lib/proxy-config.mjs';
 import { ThinkFlowClient, THINKFLOW_COMMIT } from './lib/thinkflow.mjs';
+import { resolveConfig, configFromEnvironment } from './lib/config.mjs';
+import { CaptureService } from './lib/auth/capture-service.mjs';
+import { createDeviceAPI } from './lib/routes/device-api.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const kinds = new Set(['study', 'research', 'organize']);
@@ -49,16 +52,32 @@ async function readJson(req) {
   }
 }
 
-export async function createApp({ dataDir = path.join(root, 'data'), processor = defaultProcessor, detectProxy = false, thinkflowClient = new ThinkFlowClient() } = {}) {
+export async function createApp({ dataDir = path.join(root, 'data'), processor = defaultProcessor, detectProxy = false, thinkflowClient = new ThinkFlowClient(), mode='local', storage='json', databasePath, publicOrigin='', trustedProxyAddresses=[], listenHost, clock=()=>Date.now() } = {}) {
+  const config=resolveConfig({dataDir,mode,storage,databasePath,publicOrigin,trustedProxyAddresses,listenHost});
   mkdirSync(dataDir, { recursive: true });
   const stateFile = path.join(dataDir, 'workspace.json');
-  const detected = detectProxy && proxyDetected();
+  const detected = mode==='local' && detectProxy && proxyDetected();
   const defaults = detected
     ? { provider: 'openai', baseUrl: 'http://127.0.0.1:8317/v1', model: 'gpt-6-luna' }
     : { provider: 'extractive', baseUrl: 'http://127.0.0.1:11434', model: 'qwen2.5:1.5b' };
   let state = { version: 1, tasks: [], knowledge: [], settings: defaults };
-  if (existsSync(stateFile)) {
-    const stored = JSON.parse(readFileSync(stateFile, 'utf8'));
+  let store;
+  if(storage==='sqlite') {
+    if(existsSync(stateFile) && !existsSync(config.databasePath)) throw new Error('MIGRATION_REQUIRED: 旧JSON存在，请先停止写入并执行显式核验迁移；未创建或切换数据库');
+    const {SQLiteStore}=await import('./lib/store/sqlite.mjs');
+    store=new SQLiteStore({filename:config.databasePath});
+    if(existsSync(stateFile)) {
+      const sourceHash=store.db.prepare("SELECT value FROM app_meta WHERE key='migration_source_hash'").get()?.value;
+      const currentHash=createHash('sha256').update(readFileSync(stateFile)).digest('hex');
+      if(sourceHash!==currentHash) { store.close();throw new Error('MIGRATION_REQUIRED: 迁移证据缺失或旧JSON已变化，拒绝空库/旧副本接管；请停止旧写入并核对'); }
+    }
+    if(!store.readLegacyState()) {
+      if(existsSync(stateFile)) { store.close();throw new Error('MIGRATION_REQUIRED: 旧JSON存在，请先停止写入并执行显式核验迁移；未切换数据'); }
+      store.initializeEmptyLegacyState(defaults);
+    }
+  }
+  if (store || existsSync(stateFile)) {
+    const stored = store ? store.readLegacyState() : JSON.parse(readFileSync(stateFile, 'utf8'));
     if (stored.version !== 1 || !Array.isArray(stored.tasks) || !Array.isArray(stored.knowledge)) {
       throw new Error('本地数据格式无法识别，原文件已保留。');
     }
@@ -69,12 +88,14 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
   let sessionKey = '';
   let sessionKeyBase = '';
   let closing = false;
+  let closed = false;
   let busy = false;
   const queue = [];
   const controllers = new Map();
   const asking = new Set();
   const archiving = new Set();
   function persist() {
+    if(store) { store.writeLegacyState(state);return; }
     const temp = `${stateFile}.${process.pid}.tmp`;
     writeFileSync(temp, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
     renameSync(temp, stateFile);
@@ -88,6 +109,8 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
   function publicSettings() {
     return { ...state.settings, hasApiKey: Boolean(effectiveSettings().apiKey) };
   }
+  const captureService=store ? new CaptureService(store,{clock}) : null;
+  if(mode==='server' && !captureService?.configured()) { store?.close();throw new Error('Server mode requires an initialized owner password; run init-owner in a private terminal'); }
   function transition(task, status, message) {
     task.status = status;
     task.updatedAt = now();
@@ -143,21 +166,27 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
     res.writeHead(status, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', ...headers });
     res.end(JSON.stringify(data));
   }
+  const deviceAPI=createDeviceAPI({service:captureService,config,clock,json});
   const server = http.createServer(async (req, res) => {
     try {
       const host = req.headers.host || '';
       const port = server.address()?.port;
-      const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
-      ensure(allowedHosts.has(host), '仅接受本机访问', 403);
+      const allowedHosts = mode==='server' ? new Set([new URL(config.publicOrigin).host]) : new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
+      ensure(allowedHosts.has(host), mode==='server'?'拒绝未配置的Host':'仅接受本机访问', 403);
+      if(mode==='server') ensure(req.socket.encrypted || (config.trustedProxyAddresses.includes(req.socket.remoteAddress) && req.headers['x-forwarded-proto']==='https'),'服务器模式需要HTTPS或受信的本机TLS代理',403);
       if (req.headers.origin) {
-        ensure([...allowedHosts].some(h => req.headers.origin === `http://${h}`), '拒绝跨来源请求', 403);
+        ensure(mode==='server'?req.headers.origin===config.publicOrigin:[...allowedHosts].some(h => req.headers.origin === `http://${h}`), '拒绝跨来源请求', 403);
       }
-      const url = new URL(req.url, `http://${host}`);
+      const url = new URL(req.url, mode==='server'?config.publicOrigin:`http://${host}`);
       const route = url.pathname;
+      if(await deviceAPI(req,res,url)) return;
+      // A device Bearer credential never grants access to legacy local administration.
+      if(mode==='server' && route.startsWith('/api/')) throw new HttpError(404,'本机兼容接口未在服务器模式开放');
+      if(mode==='local' && req.headers.authorization && route.startsWith('/api/')) throw new HttpError(403,'设备凭据不能调用本机管理接口');
       if (route === '/api/state' && req.method === 'GET') {
         return json(res, {
           tasks: state.tasks, knowledge: state.knowledge, settings: publicSettings(),
-          runtime: { localOnly: true, proxyDetected: detected, localModel: 'qwen2.5:1.5b', storage: 'data/workspace.json', version: '0.1.0', thinkflow: {baseUrl:thinkflowClient.baseUrl,commit:THINKFLOW_COMMIT} }
+          runtime: { localOnly: true, proxyDetected: detected, localModel: 'qwen2.5:1.5b', storage: store?'sqlite':'data/workspace.json', version: '0.1.0', thinkflow: {baseUrl:thinkflowClient.baseUrl,commit:THINKFLOW_COMMIT} }
         });
       }
       if (route === '/api/thinkflow/notebooks') {
@@ -337,14 +366,21 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
       if (route.startsWith('/api/')) throw new HttpError(404, '接口不存在');
       ensure(req.method === 'GET' || req.method === 'HEAD', '请求方法不支持', 405);
       const files = { '/': ['index.html', 'text/html'], '/index.html': ['index.html', 'text/html'],
-        '/styles.css': ['styles.css', 'text/css'], '/app.js': ['app.js', 'text/javascript'] };
+        '/styles.css': ['styles.css', 'text/css'], '/app.js': ['app.js', 'text/javascript'],
+        '/owner':['owner.html','text/html'], '/owner.js':['owner.js','text/javascript'], '/owner.css':['owner.css','text/css'] };
+      if(mode==='server' && !['/owner','/owner.js','/owner.css','/styles.css','/'].includes(route)) throw new HttpError(404,'页面不存在');
+      if(mode==='server' && route==='/') files['/']=['owner.html','text/html'];
       const asset = files[route];
       ensure(asset, '页面不存在', 404);
       const contents = readFileSync(path.join(root, 'public', asset[0]));
       res.writeHead(200, { ...securityHeaders, 'Content-Type': `${asset[1]}; charset=utf-8` });
       res.end(req.method === 'HEAD' ? undefined : contents);
     } catch (error) {
-      if (!res.headersSent) json(res, { error: error.status ? error.message : '服务暂时出错，请稍后重试' }, error.status || 500);
+      if (!res.headersSent) {
+        const versioned=String(req.url || '').startsWith('/api/v1/');
+        const message=error.status ? error.message : '服务暂时出错，请稍后重试';
+        json(res, {error:versioned?{code:'REQUEST_DENIED',message,retryable:false,request_id:`req_${randomUUID()}`}:message},error.status || 500);
+      }
       else res.end();
     }
   });
@@ -352,6 +388,8 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
   server.headersTimeout = 20000;
   server.keepAliveTimeout = 5000;
   async function close() {
+    if(closed) return;
+    closed=true;
     closing = true;
     for (const controller of controllers.values()) controller.abort();
     for (const task of state.tasks) {
@@ -365,14 +403,16 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
       server.closeIdleConnections();
       await closed;
     }
+    store?.close();
   }
   return { server, close };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PERSONAL_AGENT_PORT || 4317);
-  const app = await createApp({ detectProxy: true });
-  app.server.listen(port, '127.0.0.1', () => console.log(`Personal Agent ready: http://127.0.0.1:${port}`));
+  const config=configFromEnvironment(root);
+  const app = await createApp({ ...config,detectProxy: config.mode==='local' });
+  app.server.listen(port, config.listenHost, () => console.log(`Personal Agent ready: ${config.mode==='server'?config.publicOrigin:`http://${config.listenHost}:${port}`}`));
   app.server.on('error', error => { console.error(`启动失败：${error.code === 'EADDRINUSE' ? '端口已被占用' : error.message}`); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await app.close(); process.exit(0); });
 }

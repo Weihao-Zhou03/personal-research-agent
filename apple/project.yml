@@ -1,0 +1,92 @@
+name: PersonalResearch
+options:
+  minimumXcodeGenVersion: 2.46.0
+  xcodeVersion: '26.6'
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: '17.0'
+    watchOS: '10.0'
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MARKETING_VERSION: '0.2.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ''
+    API_BASE_URL: 'https://agent.example.invalid'
+    APP_BUNDLE_ID: 'org.example.personalresearch'
+    WATCH_BUNDLE_ID: 'org.example.personalresearch.watchkitapp'
+    GENERATE_INFOPLIST_FILE: NO
+packages:
+  WatchCore:
+    path: WatchCore
+targets:
+  PersonalResearch:
+    # Apple watch-only distribution wrapper: no iPhone executable or companion UI.
+    type: application.watchapp2-container
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: PersonalResearch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SKIP_INSTALL: NO
+    sources:
+      - path: Wrapper/Assets.xcassets
+    info:
+      path: Generated/Wrapper-Info.plist
+      properties:
+        CFBundleDisplayName: 研究随记
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKWatchOnly: true
+    dependencies:
+      - target: ResearchWatch
+        embed: true
+        codeSign: true
+  ResearchWatch:
+    # Modern single-target watch executable. No WatchKit extension business target.
+    type: application
+    platform: watchOS
+    deploymentTarget: '10.0'
+    sources:
+      - path: WatchApp
+    dependencies:
+      - package: WatchCore
+        product: WatchCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WATCH_BUNDLE_ID)
+        PRODUCT_NAME: ResearchWatch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: '4'
+        SKIP_INSTALL: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    info:
+      path: Generated/Watch-Info.plist
+      properties:
+        CFBundleDisplayName: 研究随记
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: $(APP_BUNDLE_ID)
+        WKRunsIndependentlyOfCompanionApp: true
+        APIBaseURL: $(API_BASE_URL)
+schemes:
+  ResearchWatch:
+    build:
+      targets:
+        ResearchWatch: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  PersonalResearch:
+    build:
+      targets:
+        PersonalResearch: all
+    archive:
+      config: Release

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173e36">
+  <meta name="referrer" content="same-origin">
+  <title>设备与随手记 · Personal Agent</title>
+  <link rel="stylesheet" href="/owner.css">
+  <script src="/owner.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <div class="owner-shell">
+    <header class="masthead">
+      <a class="brand" href="/owner" aria-label="Personal Agent 设备管理"><span class="brand-mark" aria-hidden="true">pa<span>·</span></span><span>Personal Agent<small>PERSONAL RESEARCH JOURNAL</small></span></a>
+      <div class="session-controls"><span id="session-state" class="session-state" role="status">正在连接</span><button id="logout" class="text-button" type="button" hidden>退出登录 ↗</button></div>
+    </header>
+    <main id="main" tabindex="-1">
+      <div class="page-heading"><div><p class="eyebrow">field notes / device desk</p><h1>把灵感留住<span>.</span></h1><p class="intro">连接手表，让随手记录有一个可靠的落点。</p></div><div class="edition"><span>设备与随手记</span><small>M1 · CAPTURE</small></div></div>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <section id="login-panel" class="entry-grid" hidden aria-labelledby="login-title">
+        <div class="entry-note"><span class="folio">01 / 连接之前</span><h2>一个属于你的<br>研究入口。</h2><p>在这里批准设备、分配研究空间，查看已经送达的原文。</p><ol class="flow-notes"><li><span>01</span><div>在手表上发起配对<small>设备会显示一组 8 位配对码</small></div></li><li><span>02</span><div>登录后批准这台设备<small>由你选择允许访问的研究空间</small></div></li><li><span>03</span><div>随时确认记录已送达<small>原文先保存，索引将在后续阶段接入</small></div></li></ol></div>
+        <section class="paper login-card"><p class="eyebrow">owner access</p><h2 id="login-title">管理员登录</h2><p class="section-note">使用在运行服务的电脑上设置的管理员密码。</p><form id="login-form"><label for="password">管理员密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024"><button class="button primary" id="login-submit" type="submit">进入管理台 <span aria-hidden="true">↗</span></button></form><p class="privacy-note">密码仅用于当前登录；页面不会将它保存在浏览器存储中。</p></section>
+      </section>
+      <section id="setup-panel" class="paper setup-panel" hidden aria-labelledby="setup-title"><p class="eyebrow">first connection</p><h2 id="setup-title">先为 Capture 初始化管理员</h2><p>当前服务还没有启用 SQLite 或管理员身份。请在运行服务的电脑上完成初始化，再以 SQLite 模式启动。</p><p>在新 PowerShell 窗口中使用隔离数据目录和端口：</p><pre><code>$captureData = Join-Path $env:LOCALAPPDATA 'PersonalResearchAgent\capture-dev'
+node scripts/init-owner.mjs --data-dir $captureData
+$env:PERSONAL_AGENT_DATA_DIR = $captureData
+$env:PERSONAL_AGENT_STORAGE = 'sqlite'
+$env:PERSONAL_AGENT_MODE = 'local'
+$env:PORT = '4319'
+node server.mjs</code></pre><p class="section-note">启动后打开 http://127.0.0.1:4319/owner。初始化脚本会在终端中隐藏输入密码。已有数据请先按项目迁移说明备份和迁移，再使用该数据目录；不要把密码、私钥或 API Key 发到聊天中。</p><button type="button" class="button secondary" id="retry-setup">已完成，重新连接 ↻</button></section>
+      <div id="dashboard" hidden>
+        <div class="dashboard-bar"><p><span id="capture-total">—</span> 条最近记录 <span class="bar-divider">/</span> <span id="device-total">—</span> 台可用设备</p><button id="refresh" type="button" class="text-button">刷新数据 ↻</button></div>
+        <div class="desk-grid">
+          <div class="desk-sidebar">
+            <section class="paper pair-panel" id="pair" aria-labelledby="pair-title"><div class="section-heading"><div><p class="eyebrow">01 / pair a device</p><h2 id="pair-title">批准新设备</h2></div><span class="section-mark" aria-hidden="true">↗</span></div><p class="section-note">输入手表上显示的配对码。请核对设备名称和发起时间后再批准。</p><form id="lookup-form"><label for="pair-code">8 位配对码</label><div class="input-action"><input id="pair-code" name="user_code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" pattern="[A-Z2-9]{8}" placeholder="ABCD2345" required aria-describedby="pair-code-hint"><button type="submit" class="button secondary" id="lookup-submit">核对</button></div><p id="pair-code-hint" class="field-note">配对码有效期为 10 分钟。</p></form><div id="pair-details" class="pair-details" hidden><div class="pair-identity"><span class="tag" id="pair-status"></span><h3 id="pair-name"></h3><p id="pair-time" class="field-note"></p></div><form id="approval-form"><fieldset><legend>允许访问的研究空间</legend><div id="scope-options" class="scope-options"></div></fieldset><label for="default-workspace">默认保存到</label><select id="default-workspace" required></select><p class="field-note">只会开放所选空间的 Capture 与记录列表。</p><div class="pair-actions"><button id="approve" type="submit" class="button primary">批准设备 ↗</button><button id="deny" type="button" class="text-button danger">拒绝配对</button></div></form><p id="pair-result" class="field-note" hidden></p></div></section>
+            <section class="paper space-panel" aria-labelledby="spaces-title"><p class="eyebrow">02 / research spaces</p><div class="section-heading"><h2 id="spaces-title">研究空间</h2><span id="space-total" class="count"></span></div><ul id="space-list" class="space-list"></ul><form id="space-form"><label for="space-name">新建空间</label><div class="input-action"><input id="space-name" name="name" placeholder="例如：论文阅读" maxlength="120" required><button type="submit" class="button secondary" id="space-submit">创建</button></div></form></section>
+          </div>
+          <div class="desk-content">
+            <section class="captures-panel" aria-labelledby="captures-title"><div class="section-heading"><div><p class="eyebrow">your field notes</p><h2 id="captures-title">已经送达的记录<span class="title-dot">.</span></h2></div><span class="tag subtle">原文保留</span></div><p class="section-note capture-note">显示最近 200 条。M1 已保存原文，资料索引尚未接入（M2）；此处不会生成摘要。</p><div id="capture-list" class="capture-list"></div></section>
+            <section class="devices-panel" aria-labelledby="devices-title"><div class="section-heading"><div><p class="eyebrow">03 / connected devices</p><h2 id="devices-title">设备记录</h2></div></div><p class="section-note">撤销后，设备需要重新配对才能继续发送。手表上尚未确认送达的原文应继续保留。</p><ul id="device-list" class="device-list"></ul></section>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer><span>Personal Agent / device desk</span><span>先保存原文，再整理知识。</span></footer>
+  </div>
+  <dialog id="revoke-dialog" aria-labelledby="revoke-title"><p class="eyebrow">device access</p><h2 id="revoke-title">撤销设备访问</h2><p id="revoke-description"></p><p class="section-note">这会立即停用此设备的凭据。已保存的记录会保留；重新使用需要再次配对。</p><div class="dialog-actions"><button type="button" id="cancel-revoke" class="button secondary">保留访问</button><button type="button" id="confirm-revoke" class="button primary">确认撤销</button></div></dialog>
+</body>
+</html>

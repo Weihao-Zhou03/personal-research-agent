@@ -1,0 +1,25 @@
+name: Watch TestFlight readiness (upload disabled)
+# Safe preflight only. This workflow intentionally contains no secret, signing or upload step.
+# A reviewed release workflow and explicit publication authorization are required to enable upload.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: watch-release-readiness
+  cancel-in-progress: false
+jobs:
+  readiness:
+    runs-on: macos-26
+    environment: apple-testflight
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Explain release gate
+        run: |
+          echo 'TestFlight upload is disabled in M0A/M1.'
+          echo 'Review docs/APPLE_DELIVERY.md and apple/delivery-manifest.json.'
+          echo 'No Apple Secrets were loaded; no build was uploaded.'
+          echo 'Unsigned build, signed archive, export, upload processing and real-device installation are separate gates.'

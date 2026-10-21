@@ -1,4 +1,8 @@
-# Personal Agent · 电脑端科研学习助手
+# Personal Agent · 科研手记与 Watch Capture
+
+Watch 分阶段实现已加入，目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。本轮 M0A 契约、迁移方案、最小 Watch 工程和无 Apple Secrets CI 已准备；M1 后端、配对管理页与 Watch outbox 已实现，**macOS 编译和真机验收尚未通过**。Capture 只保存原文，不调用模型；中文检索、Ask 和结构化简报将在 M2 实现。
+
+先看 [阶段交接](PROJECT_HANDOFF.md)、[验证记录](docs/VERIFICATION.md)。隔离运行 Capture 见 [CAPTURE_SETUP.md](docs/CAPTURE_SETUP.md)，Apple 工程与分发说明见 [APPLE_DELIVERY.md](docs/APPLE_DELIVERY.md)。现用 JSON 没有自动迁移，旧研究工作台仍保留。
 
 这是一个不依赖树莓派的 Windows 电脑端原型：从 OpenDCAI/ThinkFlow 选取资料，确认目标后后台整理，审阅结果并追问，最后人工确认写回同一 ThinkFlow 笔记本。也支持直接粘贴材料并存入本地知识库。
 
@@ -6,9 +10,9 @@
 
 ## 启动和停止
 
-需要 Windows 和 Node.js 22 或更新版本；本项目没有需要安装的 npm 依赖。
+需要 Node.js **24.19.0**（CI 固定此版本；SQLite 模式要求内置 SQLite ≥3.51.3）；本项目没有需要安装的 npm 依赖。下述双击启动器用于 Windows 本机工作台，远程模式请使用 Capture 部署说明。
 
-双击项目根目录的 `start.cmd`。启动器会复用已经运行的服务，在需要时隐藏启动本项目后端、已安装的本地 Ollama 和 ThinkFlow，并打开浏览器：
+双击项目根目录的 `start.cmd`。启动器会复用已经运行的服务，在需要时隐藏启动本项目后端和 ThinkFlow，并打开浏览器；默认不启动 Ollama：
 
 <http://127.0.0.1:4317>
 
@@ -27,6 +31,8 @@ powershell.exe -NoProfile -File .\scripts\start.ps1 -NoBrowser -SkipProxy
 ```
 
 临时不启动 ThinkFlow 可追加 `-SkipThinkFlow`；手动粘贴材料的流程仍然可用。
+
+只有要使用旧的可选本地选句方式时，才追加 `-StartOllama`；Watch 不部署模型，本轮不新增本地生成模型依赖。
 
 停止本项目登记的后台服务：
 
@@ -76,7 +82,7 @@ powershell.exe -NoProfile -File .\scripts\setup-local-model.ps1
 
 ## 数据与当前边界
 
-- 任务、结果、对话、来源登记和人工确认的知识条目保存在 `data/workspace.json`，更新采用临时文件替换。配置中的服务地址、模型名称会保存，密钥不保存。
+- 旧任务、结果、对话、来源登记和人工确认的知识条目默认保存在 `data/workspace.json`，更新采用临时文件替换。显式迁移后可选择 SQLite，不能双写或空库接管。Capture/设备身份仅使用 SQLite；配置中的服务地址、模型名称会保存，密钥不保存。
 - ThinkFlow 原生资料和文档实际保存在 `data/thinkflow/outputs`，通过目录联接供原版后端访问。备份时停止服务并复制整个 `data`；页面 JSON 导出不包含 ThinkFlow 原始文件与版本目录。
 - 任务按顺序排队。服务运行期间可以关闭页面，稍后再回来查看。电脑睡眠、关机或后端退出后不能继续处理；重启时中断任务会标为失败，需人工重新确认执行。
 - 本地目录中的资料正文是普通文件，应按自己的文件备份方式管理。知识库页可导出 JSON 备份；当前没有图形化导入恢复功能。
@@ -93,6 +99,11 @@ server.mjs                 本机 HTTP 服务、任务状态机、串行队列�
 lib/processor.mjs          规则提取、Ollama 与 OpenAI 兼容接口、任务整理和追问
 lib/proxy-config.mjs       指定本机代理位置，按需读取客户端密钥
 lib/thinkflow.mjs          ThinkFlow 原生 API 适配、正文快照与可重试回写
+lib/store/                SQLite 适配、显式迁移、一致性备份和新目录恢复
+lib/auth/                 管理员会话、设备配对、原文保存与 owner 级幂等
+lib/routes/device-api.mjs  /api/v1 管理端与设备 API，和旧 API 分离
+apple/                    SwiftUI Watch、Keychain、持久 outbox 与工程描述
+.github/workflows/        后端检查、Watch 无签名检查与分发 readiness 模板
 public/                   中文网页界面、模拟输入、任务与知识库、浏览器播报
 test/                     Node 原生测试，使用临时目录与模拟服务隔离验证
 scripts/start.ps1          复用服务或隐藏启动、PID 与进程身份登记
@@ -106,7 +117,7 @@ data/thinkflow/outputs/   ThinkFlow 原生资料、文档及其版本（运行�
 .runtime/                 本地运行时、模型、日志与进程登记（运行时生成）
 ```
 
-后端只监听 `127.0.0.1`，默认端口 `4317`；静态文件使用固定白名单，API 拒绝不匹配的 Host 和 Origin。参考材料与来源名称是数据，不是可执行指令；AI 请求将任务要求与不可信资料分开，输出仍需人工审阅。
+本机模式只监听 loopback，默认端口 `4317`；静态文件使用固定白名单，API 拒绝不匹配的 Host 和 Origin。服务器模式需显式 HTTPS 代理与认证，不能仅改监听地址。参考材料与来源名称是数据，不是可执行指令；AI 请求将任务要求与不可信资料分开，输出仍需人工审阅。
 
 直接前台运行或执行测试：
 
@@ -117,6 +128,6 @@ npm test
 
 `npm test` 不启动真实云端生成，也不依赖树莓派。真实本地模型的生成验证结果由安装脚本另存为 `.runtime/local-model-smoke.json`，该结果只对应当前 Windows 电脑。
 
-自动测试共 30 项，均已通过，包含 ThinkFlow 资料校验、人工确认、并发控制、响应丢失及重启后恢复。真实联调另外验证了 gpt-6-luna 整理与 ThinkFlow 原生文档读写。启动器实际完成了复用服务、新建及停止登记的后端、Ollama 和 ThinkFlow，并保留原有代理，再次启动后数据可读取。进程身份不匹配等保护分支已静态审查，未逐项执行隔离故障测试。
+原30项测试全部保留；新增 SQLite、认证与 Capture 测试的当前执行结果见 [验证记录](docs/VERIFICATION.md)。早期真实联调验证过 gpt-6-luna 整理与 ThinkFlow 原生文档读写；本轮没有重新调用云模型，不能把历史证据记作 Watch 链路验证。旧启动器历史实测包括复用、登记服务启动/停止及原代理保留；本轮默认不启动 Ollama 的改动经过脚本语法检查，尚未再次执行完整启动/停止演练。
 
 遇到启动问题时，查看 `.runtime/server.stderr.log`、`.runtime/ollama.stderr.log`、`.runtime/thinkflow.stderr.log`、`.runtime/proxy.stderr.log`。端口被未知服务占用时，启动器会保留已有进程；请检查占用情况，不要按端口直接结束其他程序。

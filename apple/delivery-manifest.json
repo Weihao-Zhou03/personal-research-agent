@@ -1,0 +1,39 @@
+{
+  "schema_version": "1",
+  "status": "candidate_not_build_verified",
+  "xcode": "26.6",
+  "xcodegen": "2.46.0",
+  "runner": "macos-26",
+  "watchos_deployment_target": "10.0",
+  "watch_scheme": "ResearchWatch",
+  "archive_scheme": "PersonalResearch",
+  "archive_destination": "generic/platform=iOS",
+  "targets": [
+    {
+      "name": "PersonalResearch",
+      "product_type": "com.apple.product-type.application.watchapp2-container",
+      "platform": "iOS",
+      "bundle_id_setting": "APP_BUNDLE_ID",
+      "placeholder_bundle_id": "org.example.personalresearch",
+      "role": "watch-only distribution wrapper, no iPhone executable",
+      "profile_mapping": "verify_required_profile_with_signed_archive"
+    },
+    {
+      "name": "ResearchWatch",
+      "product_type": "com.apple.product-type.application",
+      "platform": "watchOS",
+      "bundle_id_setting": "WATCH_BUNDLE_ID",
+      "placeholder_bundle_id": "org.example.personalresearch.watchkitapp",
+      "role": "SwiftUI Watch executable embedded in wrapper Watch directory",
+      "profile_mapping": "verify_required_profile_with_signed_archive"
+    }
+  ],
+  "release_enabled": false,
+  "blocking_checks": [
+    "Run watch-check on macOS and inspect unsigned archive structure",
+    "Confirm real team, bundle identifiers, target device and HTTPS backend",
+    "Obtain user approval before account resources, payment or upload",
+    "Validate signing identities and actual target/profile mappings",
+    "Upload, confirm ASC processing and TestFlight installation independently"
+  ]
+}
