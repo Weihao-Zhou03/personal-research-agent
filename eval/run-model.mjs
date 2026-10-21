@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,rmSync,mkdirSync,existsSync,openSync,closeSync,unlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -11,12 +11,17 @@ import {ResearchJobs} from '../lib/jobs/research-jobs.mjs';
 import {hashText,INDEX_VERSION} from '../lib/kb/text.mjs';
 import {readProxyKey} from '../lib/proxy-config.mjs';
 import {environmentKey,environmentModel} from '../lib/research-config.mjs';
+import {freezeModelConfig} from '../lib/llm/structured.mjs';
 
 // Explicit opt-in. Only the checked-in public synthetic corpus is ever sent.
 const args=process.argv.slice(2),local=args.includes('--local-proxy');
 if(!args.includes('--allow-generation')||!args.includes('--output'))throw Error('Usage: node eval/run-model.mjs --allow-generation [--local-proxy] --output report.json');
 const output=path.resolve(args[args.indexOf('--output')+1] || '');
-const config=local?{provider:'openai',baseUrl:'http://127.0.0.1:8317/v1',model:'gpt-6-luna'}:environmentModel();
+if(!output.endsWith('.json')||existsSync(output))throw Error('Choose a new .json report path; existing evidence is never overwritten.');
+mkdirSync(path.dirname(output),{recursive:true,mode:0o700});
+// Verify writable output before any paid generation; remove only our newly reserved empty file.
+const reportFd=openSync(output,'wx',0o600);closeSync(reportFd);unlinkSync(output);
+const config=freezeModelConfig(local?{provider:'openai',baseUrl:'http://127.0.0.1:8317/v1',model:'gpt-6-luna'}:environmentModel());
 const key=local?readProxyKey():environmentKey(config);if(!key)throw Error('Configure the key in a private environment/key file; do not paste it into logs or chat.');
 const connection=await fetch(`${config.baseUrl}/models`,{headers:{Authorization:`Bearer ${key}`},redirect:'error',signal:AbortSignal.timeout(10000)}).catch(()=>null);
 if(!connection?.ok)throw Error('Model preflight unavailable; no evaluation jobs were created. Start the configured service and rerun explicitly.');

@@ -18,6 +18,23 @@ function fixture(t) {
   return { store, capture, workspace: workspace.id, other: other.id, kb };
 }
 
+test('KB refuses an unknown schema before changing snapshots or metadata',t=>{
+  const {store,kb,workspace}=fixture(t),item=kb.importText({workspaceId:workspace,title:'模型资料',text:'保持原文🙂。'});
+  store.db.prepare("UPDATE app_meta SET value='future' WHERE key='research_kb_schema_version'").run();
+  assert.throws(()=>new KnowledgeStore(store),/explicit migration required/);
+  assert.equal(kb.getVersion(item.source_version_id).text,'保持原文🙂。');
+  assert.equal(store.db.prepare("SELECT value FROM app_meta WHERE key='research_kb_schema_version'").get().value,'future');
+});
+
+test('KB rebuilding derived tokens retains source title retrieval and frozen raw evidence',t=>{
+  const {store,kb,workspace}=fixture(t),item=kb.importText({workspaceId:workspace,title:'Neuroflux',text:'这份原文没有英文标题中的检索词。'});
+  const frozen=kb.evidence(workspace,item.corpus_revision_id,'Neuroflux');assert.equal(frozen.length,1);
+  store.db.prepare("UPDATE chunks SET index_version='previous-segmenter'").run();
+  const rebuilt=new KnowledgeStore(store);
+  assert.equal(rebuilt.evidence(workspace,rebuilt.currentRevision(workspace),'Neuroflux').length,1);
+  assert.ok(rebuilt.validateEvidence(workspace,item.corpus_revision_id,frozen));
+});
+
 test('KB preserves raw source, Unicode offsets, hashes and 600–1000 point chunks with 100 overlap', t => {
   const { kb, store, workspace } = fixture(t);
   const text = `  # 中文章节\n\n${'研究 AI 🙂。'.repeat(500)}\n\n末尾空白  \n`;

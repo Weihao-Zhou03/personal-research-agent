@@ -9,7 +9,9 @@
   let pairing = null;
   let revokeTarget = null;
   let authenticated = false;
-  const pending = new Set();
+  let viewEpoch = 0;
+  let dashboardRequest = 0;
+  const pending = new Map();
 
   class RequestError extends Error {
     constructor(message, status, code, requestId) { super(message); Object.assign(this, {status, code, requestId}); }
@@ -43,15 +45,20 @@
     container.replaceChildren(block);
   }
   function clearPrivateView() {
+    dashboardRequest++;
     document.dispatchEvent(new CustomEvent('research:logout'));
+    for(const operation of [...pending.values()].reverse())for(const [control,disabled] of operation.snapshots)if(control.isConnected!==false)control.disabled=disabled;
+    pending.clear();
     spaces = []; pairing = null; revokeTarget = null;
-    for (const id of ['capture-list', 'device-list', 'space-list', 'scope-options']) $(id).replaceChildren();
+    for (const id of ['capture-list', 'device-list', 'space-list', 'scope-options','default-workspace']) $(id).replaceChildren();
+    for(const id of ['pair-name','pair-time','pair-status','revoke-description'])$(id).textContent='';
     $('pair-details').hidden = true;
     $('pair-code').value = '';
     $('space-name').value = '';
     if ($('revoke-dialog').open) $('revoke-dialog').close();
   }
   function showLogin() {
+    viewEpoch++;
     authenticated = false; csrf = null;
     clearPrivateView();
     $('dashboard').hidden = true; $('setup-panel').hidden = true; $('login-panel').hidden = false;
@@ -73,12 +80,14 @@
     document.dispatchEvent(new CustomEvent('research:login'));
   }
   async function api(path, {method = 'GET', body} = {}) {
+    const generation=viewEpoch;
     const headers = {'Accept':'application/json'};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (method !== 'GET' && csrf) headers['X-CSRF-Token'] = csrf;
     const response = await fetch(`/api/v1/owner${path}`, {method, headers, credentials:'same-origin', cache:'no-store', ...(body !== undefined ? {body:JSON.stringify(body)} : {})});
     let data;
     try { data = await response.json(); } catch { throw new RequestError('服务返回了无法识别的响应，请刷新后重试。', response.status); }
+    if(generation!==viewEpoch)throw new RequestError('会话已变化，请重新操作。',0,'SESSION_CHANGED');
     if (!response.ok) {
       const message = data.error?.code === 'CSRF_DENIED' ? '管理员会话已变化，请刷新页面后重新操作。' : data.error?.message || '操作没有完成，请稍后重试。';
       const error = new RequestError(message, response.status, data.error?.code, data.error?.request_id);
@@ -90,14 +99,13 @@
   }
   async function action(key, controls, operation) {
     if (pending.has(key)) return;
-    pending.add(key);
     const snapshots = controls.map(control => [control, control.disabled]);
+    const token=Symbol(key);pending.set(key,{token,snapshots});
     for (const [control] of snapshots) control.disabled = true;
     notice();
-    try { await operation(); } catch (error) { errorNotice(error); }
+    try { await operation(); } catch (error) { if(pending.get(key)?.token===token)errorNotice(error); }
     finally {
-      for (const [control, disabled] of snapshots) control.disabled = disabled;
-      pending.delete(key);
+      if(pending.get(key)?.token===token){for (const [control, disabled] of snapshots) if(control.isConnected!==false)control.disabled = disabled;pending.delete(key);}
     }
   }
   function renderSpaces() {
@@ -201,18 +209,21 @@
     }));
   }
   async function loadDashboard() {
+    const generation=viewEpoch,request=++dashboardRequest;
     const [workspaceData, captureData, deviceData] = await Promise.all([api('/workspaces'), api('/captures'), api('/devices')]);
-    if (!authenticated) return;
+    if (!authenticated || generation!==viewEpoch || request!==dashboardRequest) return;
     spaces = workspaceData.workspaces;
     renderSpaces(); renderCaptures(captureData.captures); renderDevices(deviceData.devices);
   }
   async function connect() {
+    const generation=++viewEpoch;
     try {
       const session = await api('/session');
       csrf = session.csrf_token;
       showDashboard();
       await loadDashboard();
     } catch (error) {
+      if(generation!==viewEpoch)return;
       if (error.status === 401) return;
       if (error.code !== 'CAPTURE_NOT_CONFIGURED') showLogin();
       errorNotice(error);
@@ -221,6 +232,8 @@
 
   $('login-form').addEventListener('submit', event => {
     event.preventDefault();
+    if(pending.has('login'))return;
+    viewEpoch++;
     const password = $('password').value;
     $('password').value = '';
     action('login', [$('login-submit'), $('password')], async () => {
@@ -245,7 +258,7 @@
     action('workspace', [$('space-submit'), $('space-name')], async () => {
       await api('/workspaces', {method:'POST', body:{name}});
       $('space-name').value = '';
-      await loadDashboard(); notice('研究空间已创建。');
+      await loadDashboard();document.dispatchEvent(new CustomEvent('research:refresh'));notice('研究空间已创建。');
     });
   });
   $('pair-code').addEventListener('input', () => {
@@ -293,6 +306,13 @@
       $('revoke-dialog').close();
       await loadDashboard(); notice('已撤销设备访问。已保存的记录仍会保留。');
     });
+  });
+  document.addEventListener('research:unauthorized',showLogin);
+  document.addEventListener('research:owner-refresh',event=>{
+    if(!authenticated)return;
+    const generation=viewEpoch;dashboardRequest++;
+    if(event.detail?.destructive){spaces=[];for(const id of ['capture-list','device-list','space-list','scope-options','default-workspace'])$(id).replaceChildren();}
+    loadDashboard().catch(error=>{if(authenticated&&generation===viewEpoch)errorNotice(error);});
   });
   connect();
 })();

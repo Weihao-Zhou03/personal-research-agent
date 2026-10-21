@@ -17,7 +17,15 @@ M1 在隔离目录开发。已有 JSON 默认仍走旧存储；SQLite 由显式�
 
 Capture、owner 级幂等记录和待索引意图在同一个 SQLite `BEGIN IMMEDIATE` 事务提交，提交后才向设备确认。永久 device_secret 只存 hash；管理员 scrypt 校验值、会话、CSRF、配对短码不进入普通业务导出。
 
-M1 的索引意图可以持久化为 queued；中文检索和执行器在 M2 实现，界面必须显示待索引。新 Ask 的 lease 与预算不能改变迁移旧任务的保守恢复。
+Capture索引意图持久化为queued，后台独立索引成功后为indexed；失败仍保留原文并允许显式重新排队。新Ask的lease与预算不会改变迁移旧任务的保守恢复。
+
+## 当前版本的增量表
+
+在显式SQLite模式中新增sources/source_versions/chunks/FTS、corpus_revisions/members、workspace_kb/bindings、research_jobs及attempt/event/evidence/results、research_archives/writeback_intents和非秘密模型配置。旧legacy_tasks/knowledge与原jobs索引意图继续原语义，不整表重写。Capture、Ask、KB、Archive各自检查schema版本；遇未知版本拒绝启动，不能降级覆盖。现有初始KB表可补版本标记；来源正文、版本位置、hash保持不可变。
+
+分词/ICU版本变化可在短事务内重建派生token/FTS，并为当前语料发布相应索引版本；不修改原文、chunk身份/位置或旧答案冻结证据。Node固定24.19.0减少运行时差异，升级仍要先在备份副本演练。
+
+新增research_daily_ledger、research_acceptance_ledger和research_usage_ledger只留owner/day、必要去重ID、调用状态与用量，不含问题/正文/证据或凭据。首次使用从仍存在的已接收任务/已发attempt原子回填，重复启动不重复累计；升级前已删除的历史账目无法补造。删除任务/空间擦除业务内容但不重置额度/已知或未知用量，也保留必要幂等tombstone；普通导出不含认证表。
 
 ## 备份与回退
 

@@ -120,7 +120,7 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
     const fromEnv=environmentModel();
     const defaults=researchModelConfig || (fromEnv.baseUrl?fromEnv:detected?{provider:'openai',baseUrl:'http://127.0.0.1:8317/v1',model:'gpt-6-luna'}:{});
     const models=new ResearchConfig(store,{defaultConfig:defaults,clock,fetchImpl:researchFetch,resolveDefaultKey:researchResolveKey || (cfg=>environmentKey(cfg) || (detected&&cfg.baseUrl==='http://127.0.0.1:8317/v1'?readProxyKey():''))});
-    researchJobs=new ResearchJobs(store,{knowledge,clock,modelConfig:()=>{const cfg=models.current();return models.resolveKey(cfg)?cfg:{...cfg,provider:'unconfigured'};},resolveKey:cfg=>models.resolveKey(cfg),fetchImpl:researchFetch,autoStart:autoStartResearch});
+    researchJobs=new ResearchJobs(store,{knowledge,clock,modelConfig:()=>{try{const cfg=models.current();return models.resolveKey(cfg)?cfg:{...cfg,provider:'unconfigured'};}catch{return{provider:'unconfigured',version:'invalid_configuration'};}},resolveKey:cfg=>models.resolveKey(cfg),fetchImpl:researchFetch,autoStart:autoStartResearch});
     researchArchive=new ResearchArchive(store,{jobs:researchJobs,knowledge,thinkflowClient,clock,autoStart:autoStartResearch});
     captureService.askAvailable=()=>models.public().configured;
     research=createResearchAPI({store,capture:captureService,knowledge,jobs:researchJobs,models,archive:researchArchive,thinkflow:thinkflowClient,clock,fetchImpl:researchFetch,backupDir});

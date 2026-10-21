@@ -15,6 +15,16 @@ import {ThinkFlowClient} from '../lib/thinkflow.mjs';
 const password='research-http-fixture-password',encoded=passwordHash(password),clientTime='2026-10-21T09:00:00Z';
 const answer=()=>({schema_version:'1',answer_status:'answered',watch_brief:{headline:'中文模型研究',bullets:[{text:'中文模型依据检索资料回答。',citation_ids:['E1']}]},
   sections:[{heading:'资料说明',statements:[{kind:'fact',text:'模型使用中文资料检索。',citation_ids:['E1']}]}],limitations:[]});
+
+test('Invalid cloud configuration degrades Ask without blocking pairing, Capture, identity, feed or readiness',async t=>{
+  const f=await fixture(t),c=await f.start({researchModelConfig:{provider:'openai',baseUrl:'http://remote.invalid/v1',model:'broken'}}),owner=await c.owner(),device=await f.pair(c,owner);
+  const me=await c.request('/api/v1/watch/me',undefined,{headers:device.headers});assert.equal(me.status,200);assert.equal(me.body.capabilities.capture,true);assert.equal(me.body.capabilities.ask,false);
+  const saved=await c.request('/api/v1/watch/captures',{workspace_id:f.workspace.id,text:'模型配置坏了也保留原文。',created_at_client:clientTime},{headers:{...device.headers,'Idempotency-Key':randomUUID()}});assert.equal(saved.status,201);
+  assert.equal((await c.request('/api/v1/watch/feed',undefined,{headers:device.headers})).status,200);
+  const readiness=await owner.request('/readiness');assert.equal(readiness.status,200);assert.equal(readiness.body.capture.ready,true);assert.equal(readiness.body.ask.ready,false);
+  assert.equal((await f.ask(c,device,{workspace_id:f.workspace.id,question:'模型资料？',created_at_client:clientTime})).status,503);assert.equal(f.native.modelCalls,0);
+  const config=await owner.request('/model');assert.equal(config.body.code,'INVALID_MODEL_CONFIG');assert.doesNotMatch(config.text,/remote\.invalid/);
+});
 async function until(operation,predicate,label) {
   for(let i=0;i<500;i++) {const value=await operation();if(predicate(value)) return value;await delay(20);}
   assert.fail(`Timed out: ${label}`);

@@ -57,3 +57,4 @@ try {
 } finally { store.close(); rmSync(directory, { recursive: true, force: true }); }
 if (args[0] === '--output') writeFileSync(path.resolve(args[1]), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(args.length ? { output: path.resolve(args[1]), ...report.summary, not_verified: report.not_verified } : report, null, 2));
+if(report.summary.mean_recall_at_8<0.85)throw new Error('Public lexical fixture Recall@8 is below its 0.85 regression gate; this gate does not measure semantic answer quality.');
