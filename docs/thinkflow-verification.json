@@ -1,0 +1,40 @@
+{
+  "verifiedAt": "2026-10-20T04:43:47.286Z",
+  "commit": "1eecae5d6e0423ee047702a5b9193ffb2f0ea6c3",
+  "notebookId": "local_1792471328675_812c4d94",
+  "notebookName": "联调示例 · 个人研究助手",
+  "sourceCount": 2,
+  "sourceCharacters": 426,
+  "taskId": "bca494dc-a93e-4c0e-8aba-ed88af869f47",
+  "model": "gpt-6-luna",
+  "documentId": "doc_dd64f8352ab4",
+  "documentCount": 1,
+  "confirmedAt": "2026-10-20T04:43:38.109Z",
+  "sha256": "afcca6c28c4956ac6519dc35381fdb0207e0379a96cacb3e6739914ddb2e1610",
+  "readBackMatches": true,
+  "repeatConfirmationDocumentCount": 1,
+  "restartReadBackVerified": true,
+  "sourceSnapshotVerification": {
+    "verifiedAt": "2026-10-20T04:50:03.684Z",
+    "taskId": "4924704f-fe3d-45cf-9a1c-4bb833b0e3fc",
+    "model": "gpt-6-luna",
+    "documentId": "doc_b1f0b9b53400",
+    "sourceRanges": [
+      {
+        "ref": "TF1",
+        "start": 1,
+        "end": 6
+      },
+      {
+        "ref": "TF2",
+        "start": 7,
+        "end": 12
+      }
+    ],
+    "sourceSnapshotMatches": true,
+    "documentContentMatches": true,
+    "perTaskDocumentCount": 1,
+    "totalNotebookDocuments": 2,
+    "sha256": "c9410788b98cc0785e5394206ba6a0aa38300851490384f0d1388ae9c0a3fdae"
+  }
+}
