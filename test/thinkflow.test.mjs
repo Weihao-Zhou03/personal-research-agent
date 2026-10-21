@@ -156,3 +156,11 @@ test('ThinkFlow provenance appendix identifies the actual snapshot and source pa
   assert.match(result.markdown,/材料 1 至 2/);
   assert.throws(()=>new ThinkFlowClient({baseUrl:'https://remote.example'}),/仅支持本机/);
 });
+
+test('M2 raw snapshots preserve whitespace while legacy source hashes keep their original trim behavior',async t=> {
+  const {adapter,native}=await fixture(t);native.text='  原始资料\n保留边界🙂  \n';
+  const raw=await adapter.readSources('nb1',['s1'],{preserveWhitespace:true});
+  const legacy=await adapter.readSources('nb1',['s1']);
+  assert.equal(raw.sources[0].content,native.text);assert.equal(legacy.sources[0].content,native.text.trim());
+  assert.notEqual(raw.sources[0].sha256,legacy.sources[0].sha256);
+});
