@@ -101,6 +101,6 @@ python scripts/apple-delivery-preflight.py apple/delivery-local.json
 
 本轮自动检查限于静态文件、Python 脚本与共享 hash 向量。可用 `python scripts/apple-tools-test.py` 复现 5 项交付工具测试；其中合成目录只测试检查器能否拒绝缺少 Watch 与版本冲突，不是编译产物证据。另有 15 项 Swift 核心测试已提供但未在 Windows 执行，包含精确配对 URL 路径、非法 ID 请求前拦截，以及无身份字段的撤销/到期响应；没有真实 Apple SDK 构建结论。网络替身仅证明契约与状态机的测试意图；尚需在真实后端和真机运行。
 
-具体外部阻塞：未授权远端发布工作流；没有可用 macOS/Xcode 构建主机；未确认 Apple Developer/ASC 权限、签名材料和真实 bundle IDs；未配置 Watch 可达 HTTPS 后端；未提供目标手表/iPhone 型号系统；没有 TestFlight 安装反馈。以上仅阻塞相应分发步骤，不阻塞后端、测试和配置说明继续实现。
+用户最新决定已授权公开新分支与无 Apple Secrets CI，云端构建结果待实际执行记录。其余外部阻塞：本机没有 macOS/Xcode；未确认 Apple Developer/ASC 权限、签名材料和真实 bundle IDs；未配置 Watch 可达 HTTPS 后端；未提供目标手表/iPhone 型号系统；没有 TestFlight 安装反馈。以上仅阻塞相应分发步骤，不阻塞后端、测试和配置说明继续实现。
 
 下一阶段先获得无签名云构建证据并修正任何工程差异，再按实际 profile 映射准备可审查签名方案；获得明确发布授权后才上传。M2 才增加资料问答、简报与有边界的前台任务轮询，不扩大 Watch 装饰性 UI。

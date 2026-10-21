@@ -8,7 +8,7 @@
 
 新增 `apple/` SwiftUI Watch 工程、Foundation 核心包与15项待执行 Swift 测试；固定 XcodeGen2.46.0 与 Xcode26.6，watchOS10，最小 iOS watch-only wrapper 不含完整 companion。无 Apple Secrets 的 macOS CI 会测试核心、编译模拟器并检查无签名 wrapper archive；后端 CI 固定 Node24.19.0，分别在 Windows/Linux 运行。
 
-本机可运行 `npm test` 与 `python scripts/apple-tools-test.py`。Windows 没有 Xcode/Swift；尚未产生真实 Apple build 证据。新工作流尚未推送或远端执行，推送授权已向用户请求，未得到答复不能执行。M0A 不能标记验收通过。
+本机可运行 `npm test` 与 `python scripts/apple-tools-test.py`。Windows 没有 Xcode/Swift；尚未产生真实 Apple build 证据。用户最新决定已明确授权把本轮代码推送到公开仓库的新分支并运行无 Apple Secrets CI；实际 run ID 与结果随后记录。M0A 在真实构建通过前不能标记验收通过。
 
 ## M1：本地后端闭环已验证，Watch 验收待完成
 
@@ -26,11 +26,11 @@ Watch 代码提供 Keychain pending/active 分离、Application Support 原子 o
 
 见 `docs/APPLE_DELIVERY.md` 与 `apple/delivery-manifest.json`。非秘密配置预检和归档结构检查器可本地运行；`watch-testflight.yml` 仅 readiness 模板，**没有签名或上传能力**。未生成IPA、未上传ASC、未安装真机。
 
-外部条件：允许公开新分支并运行CI；可用macOS/Xcode构建证据；真实Apple Developer/ASC权限、Team/bundle IDs、P12及相应profiles、ASC P8；Watch可达HTTPS后端；目标Watch/iPhone型号系统与测试人员。用户只在安全配置界面录入秘密，不贴聊天。账号注册/费用、实际签名上传、生产迁移另按明确授权执行。
+公开新分支与无 Apple Secrets CI 已获本轮授权。其余外部条件：可用macOS/Xcode构建证据；真实Apple Developer/ASC权限、Team/bundle IDs、P12及相应profiles、ASC P8；Watch可达HTTPS后端；目标Watch/iPhone型号系统与测试人员。用户只在安全配置界面录入秘密，不贴聊天。账号注册/费用、实际签名上传、生产迁移另按明确授权执行。
 
 ## 下一步
 
-1. 获得推送授权后运行现有无Secrets CI，先修正真实编译暴露的问题；没有日志不能宣称M0A完成。
+1. 按已获授权推送新分支并运行现有无Secrets CI，先修正真实编译暴露的问题；没有日志不能宣称M0A完成。
 2. 配置真实HTTPS与Apple非秘密标识，准备可审查签名方案，再按授权做TestFlight分发；真机显示真实diagnostics响应才通过M0B。
 3. 用真机执行离线、应用重启、响应丢失、空间冻结、重新配对/撤销与身份隔离矩阵，完成M1验收。
 4. M2再实现中文资料同步/版本化索引、持久Ask与lease/预算、结构化简报及引用核验；M3再扩展新修订写回。不扩大未通过M0B的Watch装饰性功能。

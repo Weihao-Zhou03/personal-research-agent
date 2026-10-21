@@ -54,6 +54,6 @@ node --test test/capture.test.mjs test/init-owner.test.mjs
 
 M0A文档与工程已准备，但“云端真实build”门槛未过。M1后端本地闭环通过，Watch编译/真机矩阵未过，整体不标记验收完成。M0B没有实际分发结果。
 
-本机是Windows，没有Swift/Xcode；本轮公开推送与CI授权尚待回复。Apple Developer/ASC权限、真实Team/bundle IDs、证书/profiles/ASC材料、Watch可达HTTPS后端、手表/iPhone型号系统和TestFlight测试人员均未确认。秘密仅在安全配置界面填写。
+本机是Windows，没有Swift/Xcode；用户最新决定已授权本轮公开新分支推送与不使用Apple Secrets的CI，结果待实际执行记录。Apple Developer/ASC权限、真实Team/bundle IDs、证书/profiles/ASC材料、Watch可达HTTPS后端、手表/iPhone型号系统和TestFlight测试人员均未确认。秘密仅在安全配置界面填写。
 
 剩余工作：真实云编译→真实HTTPS诊断→审查签名方案并按授权分发→真机M1故障矩阵。中文检索、Ask、结构化brief、worker lease、日常部署心跳、自动备份及M3新修订归档尚未实现，不能用queued索引、Mock回答或IPA代替。
