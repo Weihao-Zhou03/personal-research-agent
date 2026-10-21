@@ -108,6 +108,56 @@ final class OutboxTests: XCTestCase {
         XCTAssertThrowsError(try Outbox(directory: dir))
     }
 
+    func testOldJournalWithoutRateLimitsMigratesWithoutChangingUnknownPayload() async throws {
+        let dir = try directory(), owner = try identity(), store = try Outbox(directory: dir)
+        let item = try await store.enqueue(text: "  旧队列原文\n不丢失  ", workspace: space, identity: owner)
+        _ = try await store.beginAttempt(id: item.id, identity: owner)
+        let url = dir.appendingPathComponent("outbox-v1.json")
+        var legacy = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        legacy.removeValue(forKey: "pauses")
+        try JSONSerialization.data(withJSONObject: legacy).write(to: url, options: .atomic)
+        let restarted = try Outbox(directory: dir)
+        let restoredItems = await restarted.allItems()
+        let loaded = try XCTUnwrap(restoredItems.first)
+        XCTAssertEqual(loaded.id, item.id); XCTAssertEqual(loaded.requestBody, item.requestBody)
+        XCTAssertEqual(loaded.payload, item.payload); XCTAssertEqual(loaded.state, .submissionUnknown)
+        let retry = try await restarted.beginAttempt(id: item.id, identity: owner)
+        XCTAssertEqual(retry.requestBody, item.requestBody)
+    }
+
+    func testExplicitLocalDeleteClearsEveryIdentityAndLateRepliesCannotRecreateContent() async throws {
+        let dir = try directory(), owner = try identity(), other = try identity(owner: "old-owner")
+        let store = try Outbox(directory: dir)
+        _ = try await store.enqueue(text: "另一身份冻结原文", workspace: space, identity: other, operation: "ask")
+        let uncertain = try await store.enqueue(text: "可能已被服务器接收", workspace: space, identity: owner)
+        _ = try await store.beginAttempt(id: uncertain.id, identity: owner)
+        try await store.recordRateLimit(identity: owner, operation: "capture", until: Date().addingTimeInterval(120))
+        try await store.deleteAllLocalContentAfterConfirmation()
+        do {
+            try await store.acknowledge(id: uncertain.id, identity: owner,
+                receipt: .init(captureID: "cap_late", workspaceID: space.id, acceptedAt: "2026-10-21T09:00:01Z"))
+            XCTFail("Late replies cannot recreate deleted queue rows")
+        } catch { XCTAssertEqual(error as? WatchCoreError, .missingItem) }
+        do { try await store.recordFailure(id: uncertain.id, code: "NETWORK_UNAVAILABLE", blocked: false); XCTFail() }
+        catch { XCTAssertEqual(error as? WatchCoreError, .missingItem) }
+        let restarted = try Outbox(directory: dir)
+        let items = await restarted.allItems(), pause = await restarted.pauseUntil(identity: owner, operation: "capture")
+        XCTAssertTrue(items.isEmpty); XCTAssertNil(pause)
+    }
+
+    func testFailedExplicitDeleteDoesNotPublishFalseEmptyState() async throws {
+        let dir = try directory(), owner = try identity(), store = try Outbox(directory: dir)
+        let item = try await store.enqueue(text: "清理失败仍保留", workspace: space, identity: owner)
+        let file = dir.appendingPathComponent("outbox-v1.json")
+        try FileManager.default.removeItem(at: file)
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
+        do { try await store.deleteAllLocalContentAfterConfirmation(); XCTFail() }
+        catch { /* Simulate unavailable storage; don't report an empty in-memory queue. */ }
+        let retained = await store.allItems()
+        XCTAssertEqual(retained.map(\.id), [item.id])
+        XCTAssertEqual(retained.first?.requestBody, item.requestBody)
+    }
+
     func testFailedDiskCommitDoesNotReportSavedInMemory() async throws {
         let dir = try directory(), store = try Outbox(directory: dir)
         // Occupy the journal destination with a directory to force atomic write failure.

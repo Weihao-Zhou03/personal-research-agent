@@ -61,6 +61,8 @@ public final class APIClient: @unchecked Sendable {
     }
 
     public func diagnostics() async throws -> Diagnostics { try await request("/api/v1/diagnostics") }
+    /// A local cancellation does not establish whether an earlier POST reached the server.
+    public func cancelRequests() { session.invalidateAndCancel() }
     public func pair(_ body: PairingRequest) async throws -> PairingResponse {
         try await request("/api/v1/pairings", method: "POST", body: JSONEncoder().encode(body))
     }
@@ -86,6 +88,8 @@ public final class APIClient: @unchecked Sendable {
             guard cursor.utf8.count <= 2048 else { throw APIError(code: "INVALID_CURSOR") }
             parts.queryItems?.append(URLQueryItem(name: "cursor", value: cursor))
         }
+        // URLSearchParams on the Node server treats '+' as space. Keep opaque cursors exact.
+        parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         return try await request(parts.string!, secret: secret)
     }
     public func capture(_ item: OutboxItem, secret: String) async throws -> CaptureReceipt {

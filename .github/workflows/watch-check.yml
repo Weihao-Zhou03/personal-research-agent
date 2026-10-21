@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: watch-check-${{ github.ref }}
+  group: watch-check-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   unsigned:

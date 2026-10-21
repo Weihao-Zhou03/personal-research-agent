@@ -53,6 +53,10 @@ struct CaptureView: View {
     @State private var text = ""
     @State private var confirming = false
     @State private var saving = false
+    @State private var reviewedText = ""
+    @State private var reviewedWorkspace: Workspace?
+    @State private var reviewedIdentity: BackendIdentity?
+    @State private var saveError = ""
     private var isAsk: Bool { operation == "ask" }
     private var limit: Int { isAsk ? 1000 : 4000 }
     var body: some View {
@@ -61,27 +65,31 @@ struct CaptureView: View {
             TextField(isAsk ? "输入资料问题" : "输入灵感", text: $text, axis: .vertical)
                 .accessibilityLabel(isAsk ? "问题，使用系统文字输入" : "灵感正文，使用系统文字输入")
             if text.unicodeScalars.count > limit { Text("单条最多\(limit)字，请缩短内容").foregroundStyle(.orange) }
-            Button("核对并保存") { confirming = true }
+            Button("核对并保存") {
+                reviewedText = text; reviewedWorkspace = model.workspace; reviewedIdentity = model.active?.identity
+                saveError = ""; confirming = true
+            }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.unicodeScalars.count > limit)
         }.navigationTitle(isAsk ? "问资料" : "记灵感")
         .sheet(isPresented: $confirming) {
             ScrollView {
-                Text(model.workspace?.name ?? "未选择").font(.headline)
-                Text(text).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical)
+                Text(reviewedWorkspace?.name ?? "未选择").font(.headline)
+                Text(reviewedText).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical)
                 Text(isAsk ? "先保存在手表，再提交研究任务。请稍后查看有来源的简报。" : "先保存在手表，再尝试上传。此条原文不会调用模型。").font(.footnote)
+                if !saveError.isEmpty { Text(saveError).font(.footnote).foregroundStyle(.orange) }
                 Button("确认保存") {
-                    guard !saving else { return }
+                    guard !saving, let workspace = reviewedWorkspace, let identity = reviewedIdentity else { return }
                     // Set synchronously before creating the Task so two rapid taps cannot
                     // enter enqueue twice with two independently generated request UUIDs.
                     saving = true
-                    let confirmedText = text
+                    let confirmedText = reviewedText
                     Task {
                         defer { saving = false }
-                        if await model.saveCapture(confirmedText, operation: operation) {
+                        if await model.saveCapture(confirmedText, operation: operation, workspace: workspace, confirmedIdentity: identity) {
                             confirming = false; dismiss(); await model.sync()
-                        }
+                        } else { saveError = model.message }
                     }
-                }.buttonStyle(.borderedProminent).disabled(saving)
+                }.buttonStyle(.borderedProminent).disabled(saving || model.deletingLocalContent)
                 Button("返回修改") { confirming = false }.disabled(saving)
             }.padding()
         }
@@ -118,7 +126,7 @@ struct FeedView: View {
     @EnvironmentObject private var model: WatchModel
     var body: some View {
         List {
-            Button("刷新") { Task { await model.sync() } }.disabled(model.busy)
+            Button("刷新") { Task { await model.refreshFeed() } }.disabled(model.busy || model.deletingLocalContent)
             if let date = model.feedDate { Text("缓存更新 \(date.formatted(date: .abbreviated, time: .shortened))").font(.footnote) }
             if model.feed.isEmpty { Text("还没有已同步记录").foregroundStyle(.secondary) }
             ForEach(model.feed) { item in
@@ -135,6 +143,7 @@ struct FeedView: View {
             }
             if model.nextFeedCursor != nil { Button("更早的记录") { Task { await model.loadMoreFeed() } }.disabled(model.busy) }
         }.navigationTitle("看简报")
+        .task(id: model.foreground) { await model.pollFeed() }
     }
 }
 
@@ -169,11 +178,11 @@ struct JobDetailView: View {
                 if let error = status.error { Text(error.message).font(.footnote) }
                 if status.status == "completed" { Text("简报尚未就绪，请稍后刷新。").font(.footnote) }
             } else { Text("尚无缓存，请刷新真实任务状态。") }
-            if let date = model.jobCacheDate { Text("缓存读取时间 \(date.formatted(date: .omitted, time: .shortened))").font(.caption2) }
+            if let date = model.jobReadDates[jobID] { Text("缓存读取时间 \(date.formatted(date: .omitted, time: .shortened))").font(.caption2) }
             Button("刷新") { Task { await model.refreshJob(jobID) } }
             Text("前台短时更新后会停止，可稍后手动查看。").font(.footnote).foregroundStyle(.secondary)
         }.padding().navigationTitle("任务简报")
-        .task(id: jobID) { await model.pollJob(jobID) }
+        .task(id: model.foreground) { await model.pollJob(jobID) }
     }
 }
 
@@ -210,6 +219,7 @@ struct ConnectionView: View {
 struct SettingsView: View {
     @EnvironmentObject private var model: WatchModel
     @State private var disconnecting = false
+    @State private var deletingContent = false
     var body: some View {
         Form {
             if let active = model.active {
@@ -224,12 +234,17 @@ struct SettingsView: View {
                 Text(model.diagnostic).font(.footnote)
                 Button("读取真实服务响应") { Task { await model.diagnose() } }
             }
-            Button("清理已同步缓存") { Task { await model.clearCache() } }
+            Button("清理已同步缓存") { Task { await model.clearCache() } }.disabled(model.deletingLocalContent)
             Button("解除本机连接", role: .destructive) { disconnecting = true }.disabled(model.active == nil)
             Text("未确认原文不会被清缓存或重新配对删除。打开应用或点同步时尝试上传。").font(.footnote)
+            Button("删除全部本机内容…", role: .destructive) { deletingContent = true }.disabled(model.deletingLocalContent)
         }.navigationTitle("设置")
         .confirmationDialog("解除连接后，待发送原文仍保留。", isPresented: $disconnecting) {
             Button("解除本机连接", role: .destructive) { model.disconnect() }
+        }
+        .confirmationDialog("永久删除所有连接身份的本机原文与缓存，包括提交结果待确认的内容？已发送内容可能已被服务器接收；此操作不删除或取消服务器任务，连接凭据仍保留。", isPresented: $deletingContent, titleVisibility: .visible) {
+            Button("确认删除全部本机内容", role: .destructive) { Task { await model.deleteLocalContentAfterConfirmation() } }
+            Button("保留内容", role: .cancel) {}
         }
     }
 }

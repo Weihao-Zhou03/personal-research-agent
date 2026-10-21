@@ -158,6 +158,12 @@ public actor Outbox {
         var next = journal; next.items.removeAll { $0.state == .acknowledged }; try commit(next)
     }
 
+    /// Destructive, explicit UI action only. Disconnect/cache cleanup must never call this.
+    /// Late acknowledgements cannot recreate removed IDs: acknowledge requires an existing item.
+    public func deleteAllLocalContentAfterConfirmation() throws {
+        try commit(Journal(schemaVersion: 1, items: [], pauses: []))
+    }
+
     private func commit(_ next: Journal) throws {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(next)

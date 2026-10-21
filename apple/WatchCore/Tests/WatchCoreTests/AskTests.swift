@@ -88,11 +88,94 @@ final class AskTests: XCTestCase {
             XCTAssertEqual(request.httpMethod, "GET"); XCTAssertEqual(parts.path, "/api/v1/watch/feed")
             XCTAssertEqual(parts.queryItems?.first(where: { $0.name == "limit" })?.value, "20")
             XCTAssertEqual(parts.queryItems?.first(where: { $0.name == "cursor" })?.value, "opaque+/=&cursor")
+            XCTAssertTrue(parts.percentEncodedQuery?.contains("opaque%2B") == true)
             return (200, [:], Data("{\"schema_version\":\"1\",\"items\":[],\"next_cursor\":null}".utf8))
         }
         let page = try await api.feed(secret: "test-secret", cursor: "opaque+/=&cursor")
         XCTAssertNil(page.nextCursor)
         XCTAssertEqual(ForegroundPolling.delays.reduce(0, +), 55)
+    }
+
+    private func meBody(owner: String = "o") -> Data {
+        Data("""
+        {"schema_version":"1","owner_id":"\(owner)","deployment_id":"d","device_id":"device_1","default_workspace":null,"allowed_workspaces":[],"device_expires_at":"2027-01-01T00:00:00Z","capabilities":{"capture":true,"ask":true,"feed":true}}
+        """.utf8)
+    }
+
+    @MainActor
+    func testResultsRefreshOnlyReadsMeAndTwentyItemFeedEvenWhenAskIsEnabled() async throws {
+        let api = try client(), owner = try identity()
+        var paths: [String] = []
+        AskProtocol.handler = { request in
+            XCTAssertEqual(request.httpMethod, "GET"); XCTAssertNil(request.httpBody)
+            XCTAssertNil(request.value(forHTTPHeaderField: "Idempotency-Key"))
+            paths.append(request.url!.path)
+            if request.url!.path == "/api/v1/watch/me" { return (200, [:], self.meBody()) }
+            XCTAssertEqual(request.url!.path, "/api/v1/watch/feed")
+            XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, "20")
+            return (200, [:], Data("{\"schema_version\":\"1\",\"items\":[],\"next_cursor\":null}".utf8))
+        }
+        _ = try await ReadOnlyWatchReader.feed(client: api, identity: owner, secret: "test-secret", isCurrent: { true })
+        XCTAssertEqual(paths, ["/api/v1/watch/me", "/api/v1/watch/feed"])
+    }
+
+    @MainActor
+    func testChangedIdentityOrContentClearBetweenReadsPreventsFeedRequest() async throws {
+        let api = try client(), owner = try identity()
+        var requests = 0, checks = 0
+        AskProtocol.handler = { request in
+            requests += 1
+            XCTAssertEqual(request.url!.path, "/api/v1/watch/me")
+            return (200, [:], self.meBody())
+        }
+        do {
+            _ = try await ReadOnlyWatchReader.feed(client: api, identity: owner, secret: "test-secret") {
+                checks += 1; return checks == 1
+            }
+            XCTFail("A local deletion/identity change must fence the next read")
+        } catch { XCTAssertEqual(error as? WatchCoreError, .identityChanged) }
+        XCTAssertEqual(requests, 1)
+        AskProtocol.handler = { _ in requests += 1; return (200, [:], self.meBody(owner: "another-owner")) }
+        do {
+            _ = try await ReadOnlyWatchReader.feed(client: api, identity: owner, secret: "test-secret", isCurrent: { true })
+            XCTFail()
+        } catch { XCTAssertEqual(error as? WatchCoreError, .identityChanged) }
+        XCTAssertEqual(requests, 2)
+    }
+
+    @MainActor
+    func testLateFeedResponseAfterContentClearIsRejected() async throws {
+        let api = try client(), owner = try identity()
+        var checks = 0
+        AskProtocol.handler = { request in
+            if request.url!.path == "/api/v1/watch/me" { return (200, [:], self.meBody()) }
+            return (200, [:], Data("{\"schema_version\":\"1\",\"items\":[],\"next_cursor\":null}".utf8))
+        }
+        do {
+            _ = try await ReadOnlyWatchReader.feed(client: api, identity: owner, secret: "test-secret") {
+                checks += 1; return checks < 3
+            }
+            XCTFail("A response arriving after local clear must not repopulate a cache")
+        } catch { XCTAssertEqual(error as? WatchCoreError, .identityChanged) }
+        XCTAssertEqual(checks, 3)
+    }
+
+    func testFeedPollingOnlyContinuesForPendingAskAndHasBoundedWaits() throws {
+        func item(type: String, status: String) throws -> FeedItem {
+            try JSONDecoder().decode(FeedItem.self, from: Data("""
+            {"id":"item","type":"\(type)","workspace_id":"ws","title":"资料","status":"\(status)","accepted_at":"2026-10-21T09:00:00Z"}
+            """.utf8))
+        }
+        XCTAssertFalse(ForegroundPolling.hasPendingAsk([]))
+        XCTAssertFalse(ForegroundPolling.hasPendingAsk([try item(type: "capture", status: "saved")]))
+        for status in ["completed", "failed", "cancelled", "needs_attention"] {
+            XCTAssertFalse(ForegroundPolling.hasPendingAsk([try item(type: "ask", status: status)]))
+        }
+        for status in ["queued", "running", "waiting_retry"] {
+            XCTAssertTrue(ForegroundPolling.hasPendingAsk([try item(type: "ask", status: status)]))
+        }
+        XCTAssertEqual(ForegroundPolling.delays, [5, 10, 20, 20])
+        XCTAssertLessThanOrEqual(ForegroundPolling.delays.reduce(0, +), 60)
     }
     func testHTTP429PropagatesRetryAfterDeadlineWithoutBodyLeak() async throws {
         let api = try client(), before = Date()
