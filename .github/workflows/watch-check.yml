@@ -1,9 +1,9 @@
 name: Watch unsigned checks
 on:
   push:
-    paths: ['apple/**', 'scripts/apple-*', 'test/fixtures/watch-contract.json', '.github/workflows/watch-check.yml']
+    paths: ['apple/**', 'scripts/apple-*', 'scripts/apple_*', 'test/fixtures/watch-*.json', '.github/workflows/watch-check.yml']
   pull_request:
-    paths: ['apple/**', 'scripts/apple-*', 'test/fixtures/watch-contract.json', '.github/workflows/watch-check.yml']
+    paths: ['apple/**', 'scripts/apple-*', 'scripts/apple_*', 'test/fixtures/watch-*.json', '.github/workflows/watch-check.yml']
   workflow_dispatch:
 permissions:
   contents: read

@@ -13,6 +13,13 @@ swift --version
 python3 "$ROOT/scripts/apple-tools-test.py"
 OUTPUT="${APPLE_CHECK_OUTPUT:-$ROOT/apple/Generated/check}"
 mkdir -p "$OUTPUT"
+python3 "$ROOT/scripts/apple-xcode-help.py" --output "$OUTPUT/xcode-tool-support.json"
+CONFIG="${APPLE_CONFIG_PATH:-$ROOT/apple/ci-config.json}"
+if [[ "${APPLE_ALLOW_SYNTHETIC:-1}" == 1 ]]; then
+  python3 "$ROOT/scripts/apple-configure.py" "$CONFIG" --output "$OUTPUT/Build.xcconfig" --allow-synthetic
+else
+  python3 "$ROOT/scripts/apple-configure.py" "$CONFIG" --output "$OUTPUT/Build.xcconfig"
+fi
 
 # Source and generator are pinned; do not silently take a newer brew version.
 TOOL_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/personal-research-xcodegen-2.46.0"
@@ -30,6 +37,7 @@ swift test --package-path "$ROOT/apple/WatchCore" 2>&1 | tee "$OUTPUT/swift-test
 xcodebuild -list -json -project "$ROOT/apple/PersonalResearch.xcodeproj" > "$OUTPUT/schemes.json"
 xcodebuild -project "$ROOT/apple/PersonalResearch.xcodeproj" -scheme ResearchWatch \
   -destination 'generic/platform=watchOS Simulator' -configuration Debug \
+  -xcconfig "$OUTPUT/Build.xcconfig" \
   -derivedDataPath "$OUTPUT/DerivedData" CODE_SIGNING_ALLOWED=NO build \
   2>&1 | tee "$OUTPUT/watch-simulator-build.log"
 
@@ -37,9 +45,10 @@ xcodebuild -project "$ROOT/apple/PersonalResearch.xcodeproj" -scheme ResearchWat
 # An unsigned archive is structural evidence only, not installable delivery.
 xcodebuild -project "$ROOT/apple/PersonalResearch.xcodeproj" -scheme PersonalResearch \
   -destination 'generic/platform=iOS' -configuration Release \
+  -xcconfig "$OUTPUT/Build.xcconfig" \
   -archivePath "$OUTPUT/PersonalResearch.xcarchive" \
   -derivedDataPath "$OUTPUT/DerivedData" CODE_SIGNING_ALLOWED=NO archive \
   2>&1 | tee "$OUTPUT/unsigned-archive.log"
 python3 "$ROOT/scripts/apple-inspect-archive.py" "$OUTPUT/PersonalResearch.xcarchive" \
-  --output "$OUTPUT/archive-inspection.json"
+  --output "$OUTPUT/archive-inspection.json" --expected-config "$CONFIG"
 echo 'Unsigned checks completed. Signing, upload and real-device installation are NOT verified.'

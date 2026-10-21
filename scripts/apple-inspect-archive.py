@@ -7,6 +7,7 @@ import plistlib
 parser = argparse.ArgumentParser()
 parser.add_argument("archive", type=pathlib.Path)
 parser.add_argument("--output", type=pathlib.Path)
+parser.add_argument("--expected-config", type=pathlib.Path)
 args = parser.parse_args()
 archive = args.archive.resolve()
 applications = archive / "Products" / "Applications"
@@ -33,6 +34,16 @@ checks = {
     "watch_executable_present": bool(watch.get("CFBundleExecutable")) and (watches[0] / watch.get("CFBundleExecutable", "")).is_file(),
     "no_legacy_watchkit_extension": not list((watches[0] / "PlugIns").glob("*.appex")),
 }
+if args.expected_config:
+    from apple_config import load
+    expected = load(args.expected_config, allow_synthetic=True)
+    checks.update({
+        "expected_root_bundle": wrapper.get("CFBundleIdentifier") == expected["APP_BUNDLE_ID"],
+        "expected_watch_bundle": watch.get("CFBundleIdentifier") == expected["WATCH_BUNDLE_ID"],
+        "expected_version": watch.get("CFBundleShortVersionString") == expected["MARKETING_VERSION"],
+        "expected_build": watch.get("CFBundleVersion") == expected["CURRENT_PROJECT_VERSION"],
+        "expected_api_origin": watch.get("APIBaseURL") == expected["API_BASE_URL"].rstrip("/"),
+    })
 result = {
     "schema_version": "1", "status": "unsigned_structure_only",
     "wrapper_bundle_id": wrapper.get("CFBundleIdentifier"),
