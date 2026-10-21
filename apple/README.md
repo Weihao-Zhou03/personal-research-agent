@@ -1,4 +1,4 @@
-# Apple Watch 客户端（M0A / M1 候选）
+# Apple Watch 客户端（M0A已通过 / M1待真机验收）
 
 此目录新增原生 Watch 工程，不改变现有网页或旧任务。Watch 不部署模型、不带模型密钥。当前界面只开放记灵感、最近记录和连接；问资料属于后续 M2。
 
@@ -10,7 +10,7 @@
 bash scripts/apple-check.sh
 ```
 
-脚本依次运行核心 Swift 单元测试、无签名模拟器 build、无签名 wrapper archive、真实归档结构检查。Windows 本机不能执行这些 Apple SDK 检查。工作流尚未在云端运行时，M0A 的“真实 build”门槛仍未通过。
+脚本依次运行核心Swift单元测试、无签名模拟器build、无签名wrapper archive、真实归档结构检查。Windows本机不能执行这些Apple SDK检查。2026-10-21 [云端run39563062510](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39563062510)已成功：15项Swift测试、Watch编译、archive和8项结构检查通过；M0A真实build门槛已过，签名与真机验收仍未完成。
 
 客户端的 HTTPS 地址由 `API_BASE_URL` build setting 写入 Info.plist，默认是不可用的占位地址。真实后端必须使用有效 HTTPS；没有 ATS 例外、任意重定向或内置账号。连接前可在设置读取 `/api/v1/diagnostics` 的真实响应。身份凭据由表端生成并保存在 Keychain，不从 GitHub Secrets 注入设备。
 

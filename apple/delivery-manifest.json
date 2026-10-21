@@ -1,6 +1,8 @@
 {
   "schema_version": "1",
-  "status": "candidate_not_build_verified",
+  "status": "unsigned_structure_verified",
+  "verified_source_sha": "c8e0e32264b709963bd70f4be50449dc609eee98",
+  "evidence_run_url": "https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39563062510",
   "xcode": "26.6",
   "xcodegen": "2.46.0",
   "runner": "macos-26",
@@ -30,7 +32,6 @@
   ],
   "release_enabled": false,
   "blocking_checks": [
-    "Run watch-check on macOS and inspect unsigned archive structure",
     "Confirm real team, bundle identifiers, target device and HTTPS backend",
     "Obtain user approval before account resources, payment or upload",
     "Validate signing identities and actual target/profile mappings",

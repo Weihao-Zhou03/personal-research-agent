@@ -1,8 +1,8 @@
 # Apple Watch 工程与真机分发
 
-核查日期：2026-10-21。当前是可审查的工程和分发预检；**没有完成 Watch SDK 编译、签名、上传或真机安装**。开发环境为 Windows，已获授权通过GitHub macOS runner执行检查；Apple账号配置、签名材料和目标手表信息尚缺。本文件不以Mock、IPA或模拟器结果代替真机验收。
+核查日期：2026-10-21。**M0A真实云构建已通过，签名、上传和真机安装未完成**。已按最新授权通过GitHub macOS runner执行15项Swift核心测试、Watch模拟器编译、无签名wrapper归档和8项结构检查。本机仍为Windows；Apple账号配置、签名材料、真实HTTPS和目标手表信息尚缺。本文件不以Mock、IPA或模拟器结果代替真机验收。
 
-## M0A 已实现与待验证
+## M0A 已实现与真实构建证据
 
 - `apple/project.yml`：XcodeGen 2.46.0（提交 `8445e778451c7e44237b90281bde622d764b0084`），明确 Xcode 26.6、watchOS 10.0 Deployment Target 和共享 scheme。
 - `ResearchWatch`：现代单 target SwiftUI Watch App；`PersonalResearch`：Apple watch-only 分发所需 iOS wrapper stub，不创建 iPhone 可执行界面。没有旧式 WatchKit Extension 业务 target。
@@ -33,7 +33,7 @@ XcodeGen 支持 wrapper 类型和独立 watchOS target；生成成功仍不能�
 
 原始结构化证据地址是在上述 `/documentation/…` 路径前加 `/tutorials/data`，末尾加 `.json`。例如 `https://developer.apple.com/tutorials/data/documentation/swiftui/textfield/init(_:text:axis:)-7n1bm.json`。`axis` 是偏好，控件样式可能不遵循该方向；API 可用不保证手表呈现多行编辑。确认页使用独立滚动正文，中文输入、换行和实际交互仍须真机验收。没有发现需要提高最低系统版本的明确冲突，因此未扩展 UI 或删除系统输入。
 
-wrapper 结构同时依据 Apple 独立 Watch 文档与[固定版 XcodeGen 生成器实现](https://github.com/yonaskolb/XcodeGen/blob/2.46.0/Sources/XcodeGenKit/PBXProjGenerator.swift)：生成器将 watchOS App 依赖复制到 wrapper 的 `Watch` 目录。该源码核查不能替代实际 archive 中的产品检查；候选工程状态仍为未构建验证。
+wrapper结构同时依据Apple独立Watch文档与[固定版XcodeGen生成器实现](https://github.com/yonaskolb/XcodeGen/blob/2.46.0/Sources/XcodeGenKit/PBXProjGenerator.swift)。现已在真实无签名archive确认Watch App位于wrapper的`Watch`目录、可执行文件存在，版本与bundle关联正确；签名profile映射仍待实际发行配置。
 
 ### 运行与复现
 
@@ -43,17 +43,17 @@ wrapper 结构同时依据 Apple 独立 Watch 文档与[固定版 XcodeGen 生�
 bash scripts/apple-check.sh
 ```
 
-无密钥CI已按用户最新授权推送触发。首轮[run39562283553](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39562283553)确认Xcode/XcodeGen与工程生成可用，Swift核心编译暴露泛型函数内嵌类型错误；最小修复后重跑，不能将此失败记录填为“CI已通过”。所需关键证据：
+无密钥CI已按用户最新授权推送触发。首轮[run39562283553](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39562283553)暴露Swift泛型函数内嵌类型错误；已作最小修复，第二轮[run39563062510](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39563062510)真实成功，源码`c8e0e32264b709963bd70f4be50449dc609eee98`。实测Xcode26.6/build17F113、Swift6.3.3和watchOS SDK26.5；SDK版本与watchOS10最低部署版本分别记录。
 
 | 证据 | 产生位置 | 目前结果 |
 | --- | --- | --- |
-| Swift 核心测试 | `apple/Generated/check/swift-test.log` | 待 macOS 执行 |
-| Watch 模拟器 build | `watch-simulator-build.log` | 待 macOS 执行 |
-| wrapper archive | `unsigned-archive.log` | 待 macOS 执行 |
-| 实际嵌入与 bundle 检查 | `archive-inspection.json` | 待归档产生 |
+| Swift 核心测试 | `apple/Generated/check/swift-test.log` | 15项XCTest通过、0失败 |
+| Watch 模拟器 build | `watch-simulator-build.log` | BUILD SUCCEEDED；未做模拟器交互测试 |
+| wrapper archive | `unsigned-archive.log` | ARCHIVE SUCCEEDED；无签名 |
+| 实际嵌入与 bundle 检查 | `archive-inspection.json` | 8项全部true，含可执行文件与版本 |
 | 签名/上传/TestFlight/真机 | 独立发布与人工记录 | 未执行 |
 
-`apple/delivery-manifest.json` 列出了当前候选 target、bundle setting、scheme、archive destination。其状态明确为 `candidate_not_build_verified`。只有检查实际归档后才确认需要哪些 profile，不把 profile 数量先写死。生成工程未纳入仓库；源码和声明式规范可重复生成。
+`apple/delivery-manifest.json`列出了已验证结构的target、bundle setting、scheme与archive destination，状态为`unsigned_structure_verified`并绑定源码SHA。当前bundle IDs仍是占位值，发行所需profile按实际Apple配置和签名归档确认，不把数量写死。生成工程不入库，可重复生成。原样结构报告见`docs/ci/watch-archive-39563062510.json`；CI artifact只保留日志/JSON，未上传archive或IPA，详细digest与保留期限见`docs/VERIFICATION.md`。
 
 ## M1 客户端行为
 
@@ -99,8 +99,8 @@ python scripts/apple-delivery-preflight.py apple/delivery-local.json
 
 ### 验证与外部阻塞
 
-本轮自动检查限于静态文件、Python 脚本与共享 hash 向量。可用 `python scripts/apple-tools-test.py` 复现 5 项交付工具测试；其中合成目录只测试检查器能否拒绝缺少 Watch 与版本冲突，不是编译产物证据。另有 15 项 Swift 核心测试已提供但未在 Windows 执行，包含精确配对 URL 路径、非法 ID 请求前拦截，以及无身份字段的撤销/到期响应；没有真实 Apple SDK 构建结论。网络替身仅证明契约与状态机的测试意图；尚需在真实后端和真机运行。
+本轮除静态检查与Python工具5项外，已真实执行macOS Swift核心15项测试、Watch SDK编译与无签名archive检查。Python的合成目录仍只验证检查器拒绝分支；真实归档证据另行保存。Swift中的URLProtocol是网络替身，验证请求路径、字节和状态机，不能替代真实后端/Watch联调。Keychain、中文系统输入、前后台/断网恢复、真实TLS与设备安装均需后续实测。
 
-用户最新决定已授权公开新分支与无 Apple Secrets CI，云端构建结果待实际执行记录。其余外部阻塞：本机没有 macOS/Xcode；未确认 Apple Developer/ASC 权限、签名材料和真实 bundle IDs；未配置 Watch 可达 HTTPS 后端；未提供目标手表/iPhone 型号系统；没有 TestFlight 安装反馈。以上仅阻塞相应分发步骤，不阻塞后端、测试和配置说明继续实现。
+公开新分支与无Apple Secrets CI已授权并完成。剩余外部阻塞：未确认Apple Developer/ASC权限、签名材料和真实bundle IDs；未配置Watch可达HTTPS后端；未提供目标手表/iPhone型号系统；没有TestFlight安装反馈。本机没有macOS不再阻塞M0A云构建；后端和配置说明可继续独立实现。
 
-下一阶段先获得无签名云构建证据并修正任何工程差异，再按实际 profile 映射准备可审查签名方案；获得明确发布授权后才上传。M2 才增加资料问答、简报与有边界的前台任务轮询，不扩大 Watch 装饰性 UI。
+下一阶段配置真实HTTPS诊断，按实际target/profile映射准备可审查签名方案；取得签名分发所需材料和明确授权后才上传。M2再增加资料问答、简报与有边界的前台任务轮询，不扩大未通过M0B的Watch装饰性UI。

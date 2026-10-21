@@ -1,6 +1,6 @@
 # Personal Agent · 科研手记与 Watch Capture
 
-Watch 分阶段实现已加入，目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。本轮 M0A 契约、迁移方案、最小 Watch 工程和无 Apple Secrets CI 已准备；M1 后端、配对管理页与 Watch outbox 已实现，**macOS 编译和真机验收尚未通过**。Capture 只保存原文，不调用模型；中文检索、Ask 和结构化简报将在 M2 实现。
+Watch 分阶段实现已加入，目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。M0A 已通过真实云构建：15项Swift核心测试、Watch模拟器编译、无签名wrapper归档与结构检查成功；后端Windows/Linux各60项测试通过。M1后端、配对管理页与Watch outbox已实现，**真机验收尚未完成**。Capture只保存原文，不调用模型；中文检索、Ask和结构化简报将在M2实现。
 
 先看 [阶段交接](PROJECT_HANDOFF.md)、[验证记录](docs/VERIFICATION.md)。隔离运行 Capture 见 [CAPTURE_SETUP.md](docs/CAPTURE_SETUP.md)，Apple 工程与分发说明见 [APPLE_DELIVERY.md](docs/APPLE_DELIVERY.md)。现用 JSON 没有自动迁移，旧研究工作台仍保留。
 
