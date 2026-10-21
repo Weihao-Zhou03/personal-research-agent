@@ -9,6 +9,8 @@ import { ThinkFlowClient, THINKFLOW_COMMIT } from './lib/thinkflow.mjs';
 import { resolveConfig, configFromEnvironment } from './lib/config.mjs';
 import { CaptureService } from './lib/auth/capture-service.mjs';
 import { createDeviceAPI } from './lib/routes/device-api.mjs';
+import {ResearchConfig,environmentModel,environmentKey} from './lib/research-config.mjs';
+import {createResearchAPI} from './lib/routes/research-api.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const kinds = new Set(['study', 'research', 'organize']);
@@ -52,7 +54,7 @@ async function readJson(req) {
   }
 }
 
-export async function createApp({ dataDir = path.join(root, 'data'), processor = defaultProcessor, detectProxy = false, thinkflowClient = new ThinkFlowClient(), mode='local', storage='json', databasePath, publicOrigin='', trustedProxyAddresses=[], listenHost, clock=()=>Date.now() } = {}) {
+export async function createApp({ dataDir = path.join(root, 'data'), processor = defaultProcessor, detectProxy = false, thinkflowClient = new ThinkFlowClient(), mode='local', storage='json', databasePath, publicOrigin='', trustedProxyAddresses=[], listenHost, clock=()=>Date.now(),researchModelConfig,researchResolveKey,researchFetch=fetch,autoStartResearch=true,backupDir=process.env.PERSONAL_AGENT_BACKUP_DIR } = {}) {
   const config=resolveConfig({dataDir,mode,storage,databasePath,publicOrigin,trustedProxyAddresses,listenHost});
   mkdirSync(dataDir, { recursive: true });
   const stateFile = path.join(dataDir, 'workspace.json');
@@ -111,6 +113,20 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
   }
   const captureService=store ? new CaptureService(store,{clock}) : null;
   if(mode==='server' && !captureService?.configured()) { store?.close();throw new Error('Server mode requires an initialized owner password; run init-owner in a private terminal'); }
+  let research=null,researchJobs=null,researchArchive=null,indexTimer=null;
+  if(store) {
+    const [{KnowledgeStore},{ResearchJobs},{ResearchArchive}]=await Promise.all([import('./lib/kb/knowledge-store.mjs'),import('./lib/jobs/research-jobs.mjs'),import('./lib/archive.mjs')]);
+    const knowledge=new KnowledgeStore(store,{clock});
+    const fromEnv=environmentModel();
+    const defaults=researchModelConfig || (fromEnv.baseUrl?fromEnv:detected?{provider:'openai',baseUrl:'http://127.0.0.1:8317/v1',model:'gpt-6-luna'}:{});
+    const models=new ResearchConfig(store,{defaultConfig:defaults,clock,fetchImpl:researchFetch,resolveDefaultKey:researchResolveKey || (cfg=>environmentKey(cfg) || (detected&&cfg.baseUrl==='http://127.0.0.1:8317/v1'?readProxyKey():''))});
+    researchJobs=new ResearchJobs(store,{knowledge,clock,modelConfig:()=>{const cfg=models.current();return models.resolveKey(cfg)?cfg:{...cfg,provider:'unconfigured'};},resolveKey:cfg=>models.resolveKey(cfg),fetchImpl:researchFetch,autoStart:autoStartResearch});
+    researchArchive=new ResearchArchive(store,{jobs:researchJobs,knowledge,thinkflowClient,clock,autoStart:autoStartResearch});
+    captureService.askAvailable=()=>models.public().configured;
+    research=createResearchAPI({store,capture:captureService,knowledge,jobs:researchJobs,models,archive:researchArchive,thinkflow:thinkflowClient,clock,fetchImpl:researchFetch,backupDir});
+    // Save Capture first. Indexing is separate, synchronous and transactional; no model or upstream request.
+    if(autoStartResearch){indexTimer=setInterval(()=>{try{knowledge.indexPendingCaptures({limit:20,includeFailed:false});}catch{}},1000);indexTimer.unref();}
+  }
   function transition(task, status, message) {
     task.status = status;
     task.updatedAt = now();
@@ -166,7 +182,7 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
     res.writeHead(status, { ...securityHeaders, 'Content-Type': 'application/json; charset=utf-8', ...headers });
     res.end(JSON.stringify(data));
   }
-  const deviceAPI=createDeviceAPI({service:captureService,config,clock,json});
+  const deviceAPI=createDeviceAPI({service:captureService,config,clock,json,research});
   const server = http.createServer(async (req, res) => {
     try {
       const host = req.headers.host || '';
@@ -367,8 +383,8 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
       ensure(req.method === 'GET' || req.method === 'HEAD', '请求方法不支持', 405);
       const files = { '/': ['index.html', 'text/html'], '/index.html': ['index.html', 'text/html'],
         '/styles.css': ['styles.css', 'text/css'], '/app.js': ['app.js', 'text/javascript'],
-        '/owner':['owner.html','text/html'], '/owner.js':['owner.js','text/javascript'], '/owner.css':['owner.css','text/css'] };
-      if(mode==='server' && !['/owner','/owner.js','/owner.css','/styles.css','/'].includes(route)) throw new HttpError(404,'页面不存在');
+        '/owner':['owner.html','text/html'], '/owner.js':['owner.js','text/javascript'], '/owner.css':['owner.css','text/css'], '/research.js':['research.js','text/javascript'], '/research.css':['research.css','text/css'] };
+      if(mode==='server' && !['/owner','/owner.js','/owner.css','/research.js','/research.css','/styles.css','/'].includes(route)) throw new HttpError(404,'页面不存在');
       if(mode==='server' && route==='/') files['/']=['owner.html','text/html'];
       const asset = files[route];
       ensure(asset, '页面不存在', 404);
@@ -391,6 +407,9 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
     if(closed) return;
     closed=true;
     closing = true;
+    clearInterval(indexTimer);
+    await researchJobs?.stop();
+    await researchArchive?.stop();
     for (const controller of controllers.values()) controller.abort();
     for (const task of state.tasks) {
       if (['queued', 'running'].includes(task.status)) {

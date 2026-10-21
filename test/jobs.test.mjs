@@ -152,3 +152,43 @@ test('Model config changes are visible and cannot silently execute queued jobs a
   f.setConfig({inputTokens:999999});assert.equal(f.jobs.submit(input).response.job_id,a.response.job_id);
   const g=await fixture(t,{config:{provider:'unconfigured'}});assert.equal(g.jobs.readiness().code,'MODEL_NOT_CONFIGURED');assert.throws(()=>g.jobs.submit(g.input()),e=>e.code==='MODEL_NOT_CONFIGURED');
 });
+
+test('Deleting jobs cannot reset daily acceptance limits or erase real/unknown usage accounting',async t=> {
+  let calls=0;const f=await fixture(t,{config:{dailyLimit:2},fetchImpl:async()=>response(valid(),++calls===1?{usage:{prompt_tokens:10,completion_tokens:12,total_tokens:22}}:{})});
+  const a=f.jobs.submit(f.input());await f.jobs.runOnce();const b=f.jobs.submit(f.input());await f.jobs.runOnce();
+  const before=f.jobs.usage();assert.equal(before.calls,2);assert.equal(before.accepted_asks,2);assert.equal(before.known_usage_calls,1);assert.equal(before.unknown_usage_calls,1);
+  f.jobs.remove(a.response.job_id);f.jobs.remove(b.response.job_id);assert.deepEqual(f.jobs.usage(),before);
+  assert.throws(()=>f.jobs.submit(f.input()),e=>e.code==='DAILY_ASK_LIMIT');
+  const replacement=f.create();assert.deepEqual(replacement.usage(),before);assert.throws(()=>replacement.submit(f.input()),e=>e.code==='DAILY_ASK_LIMIT');
+  const privateLedger=JSON.stringify(f.store.db.prepare('SELECT * FROM research_usage_ledger').all());assert.ok(!privateLedger.includes('中文'));assert.ok(!privateLedger.includes('test-model'));assert.ok(!privateLedger.includes('test-only-secret'));
+});
+
+test('Upgrade backfills extant acceptance and sent attempts once, preserving known and unknown usage',async t=> {
+  const f=await fixture(t),a=f.jobs.submit(f.input());await f.jobs.runOnce();const before=f.jobs.usage();
+  f.store.db.exec('DELETE FROM research_daily_ledger; DELETE FROM research_acceptance_ledger; DELETE FROM research_usage_ledger;');
+  const upgraded=f.create();assert.deepEqual(upgraded.usage(),before);assert.deepEqual(f.create().usage(),before);
+  assert.equal(upgraded.get(a.response.job_id).calls_used,1);
+});
+
+test('Late responses after deletion update the retained usage ledger once',async t=> {
+  let release,entered;const started=new Promise(resolve=>{entered=resolve;});
+  const f=await fixture(t,{fetchImpl:async()=>{entered();return new Promise(resolve=>{release=resolve;});}}),a=f.jobs.submit(f.input());
+  const execution=f.jobs.runOnce();await started;assert.equal(f.jobs.usage().calls,1);assert.equal(f.jobs.usage().unknown_usage_calls,1);
+  f.jobs.remove(a.response.job_id);release(response(valid(),{usage:{prompt_tokens:3,completion_tokens:5,total_tokens:8}}));await execution;
+  assert.equal(f.jobs.usage().calls,1);assert.equal(f.jobs.usage().unknown_usage_calls,0);assert.equal(f.jobs.usage().measured_usage.total_tokens,8);
+  assert.equal(f.jobs.usage().accepted_asks,1);
+});
+
+test('A disk failure at the pre-POST sent marker does not count a reserved attempt as an actual call',async t=> {
+  const f=await fixture(t),a=f.jobs.submit(f.input());
+  f.store.db.exec("CREATE TRIGGER fail_sent BEFORE UPDATE OF request_sent ON research_job_attempts WHEN NEW.request_sent=1 BEGIN SELECT RAISE(ABORT,'fixture sent marker failure'); END;");
+  await f.jobs.runOnce();const job=f.jobs.get(a.response.job_id);assert.equal(job.calls_used,1);assert.equal(job.attempts[0].request_sent,0);
+  assert.equal(f.calls,0);assert.equal(f.jobs.usage().calls,0);assert.equal(f.create().usage().calls,0);assert.equal(f.jobs.usage().accepted_asks,1);
+});
+
+test('Readiness distinguishes a stopped worker, fresh heartbeat and stale heartbeat without generating',async t=> {
+  const f=await fixture(t);assert.equal(f.jobs.readiness().ready,false);assert.equal(f.jobs.readiness().code,'WORKER_STOPPED');assert.equal(f.jobs.readiness().heartbeat_at,null);
+  f.jobs.start();assert.equal(f.jobs.readiness().ready,true);assert.equal(f.jobs.readiness().worker_running,true);assert.ok(f.jobs.readiness().heartbeat_at);
+  f.advance(15001);assert.equal(f.jobs.readiness().code,'WORKER_HEARTBEAT_STALE');await f.jobs.runOnce();assert.equal(f.jobs.readiness().ready,true);
+  await f.jobs.stop();assert.equal(f.jobs.readiness().code,'WORKER_STOPPED');assert.equal(f.calls,0);
+});

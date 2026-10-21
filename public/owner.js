@@ -43,6 +43,7 @@
     container.replaceChildren(block);
   }
   function clearPrivateView() {
+    document.dispatchEvent(new CustomEvent('research:logout'));
     spaces = []; pairing = null; revokeTarget = null;
     for (const id of ['capture-list', 'device-list', 'space-list', 'scope-options']) $(id).replaceChildren();
     $('pair-details').hidden = true;
@@ -69,6 +70,7 @@
     $('logout').hidden = false;
     $('session-state').textContent = '管理员已登录';
     $('session-state').classList.add('active');
+    document.dispatchEvent(new CustomEvent('research:login'));
   }
   async function api(path, {method = 'GET', body} = {}) {
     const headers = {'Accept':'application/json'};
@@ -148,9 +150,10 @@
       const article = element('article', 'capture-card');
       const meta = element('div', 'capture-meta');
       const time = element('time', '', date(capture.accepted_at)); time.dateTime = capture.accepted_at;
-      meta.append(element('span', 'capture-space', workspaceName(capture.workspace_id)), time, element('span', 'tag subtle', capture.index_status === 'pending' ? '原文已保存 · 待索引' : '原文已保存'));
+      meta.append(element('span', 'capture-space', workspaceName(capture.workspace_id)), time, element('span', 'tag subtle', ({pending:'原文已保存 · 待索引',indexed:'原文已保存 · 已索引',failed:'原文已保存 · 索引失败'})[capture.index_status] || '原文已保存'));
       const footer = element('div', 'capture-footer');
       footer.append(element('span', '', `设备记录时间 ${date(capture.created_at_client)}`), element('code', '', capture.id));
+      if(capture.index_status==='failed'){const retry=element('button','text-button','重试资料索引');retry.type='button';retry.addEventListener('click',()=>action('retry-index',[retry],async()=>{await api(`/captures/${capture.id}/retry-index`,{method:'POST',body:{}});await loadDashboard();}));footer.append(retry);}
       article.append(meta, element('pre', 'capture-text', capture.text), footer);
       return article;
     }));
@@ -174,6 +177,13 @@
       heading.append(element('h3', '', device.name), element('span', `tag${status === 'active' ? '' : status === 'revoked' ? ' revoked' : ' disabled'}`, label));
       body.append(heading);
       if (device.allowed_workspace_ids.length) body.append(element('p', '', `允许空间：${device.allowed_workspace_ids.map(workspaceName).join('、')} · 默认：${workspaceName(device.default_workspace_id)}`));
+      if(status==='active') {
+        const label=element('label','','默认空间'),select=element('select');
+        const available=spaces.filter(space=>device.allowed_workspace_ids.includes(space.id));
+        select.replaceChildren(...available.map(space=>{const option=element('option','',space.name);option.value=space.id;return option;}));select.value=device.default_workspace_id;label.append(select);
+        const enable=element('input');enable.type='checkbox';enable.checked=device.scopes.includes('ask');const enableLabel=element('label','','允许资料问答');enableLabel.prepend(enable);
+        const update=element('button','text-button','保存设备设置');update.type='button';update.addEventListener('click',()=>action(`settings-${device.id}`,[update,select,enable],async()=>{await api(`/devices/${encodeURIComponent(device.id)}/settings`,{method:'POST',body:{allowed_workspace_ids:device.allowed_workspace_ids,default_workspace_id:select.value,enable_ask:enable.checked}});notice('设备设置已保存；已入队内容仍属于原空间。');await loadDashboard();}));body.append(label,enableLabel,update);
+      }
       if (device.expires_at) body.append(element('p', '', `凭据有效至 ${date(device.expires_at)}`));
       if (device.revoked_at) body.append(element('p', '', `撤销于 ${date(device.revoked_at)}`));
       body.append(element('p', 'device-id', device.id));

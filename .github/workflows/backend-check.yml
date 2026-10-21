@@ -24,5 +24,13 @@ jobs:
           node-version-file: .node-version
       - name: Check runtime and SQLite capabilities
         run: node --input-type=module -e "import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync(':memory:'); console.log(process.version,db.prepare('select sqlite_version() as version').get()); db.exec('CREATE VIRTUAL TABLE probe USING fts5(tokens)'); db.close();"
-      - name: Run old compatibility and Capture tests
+      - name: Run compatibility, Capture, Ask, archive and recovery tests
         run: npm test
+      - name: Run public Chinese lexical baseline without model calls
+        run: node eval/run-lexical.mjs --output lexical-eval.json
+      - name: Retain public retrieval evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lexical-evidence-${{ matrix.os }}-${{ github.run_id }}
+          path: lexical-eval.json
+          retention-days: 14

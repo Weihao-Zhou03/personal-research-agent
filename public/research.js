@@ -1,0 +1,86 @@
+'use strict';
+(() => {
+  const $=id=>document.getElementById(id),el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);if(className)node.className=className;return node;};
+  let csrf='',logged=false,epoch=0,workspaceId='',cursor=null,selectedJob=null,pendingSubmission=null,pollTimer=null,loading=false;
+  const busy=new Set(),statusName={queued:'等待处理',running:'处理中',waiting_retry:'等待重试',completed:'已完成',failed:'失败',cancelled:'已取消',needs_attention:'待人工核对',retrieving:'检索资料',generating:'生成回答',validating:'校验引用',verified:'写回已核对',reconciliation_required:'写回待核对',conflict:'写回冲突'};
+  const note=(text,error=false)=>{const target=$('research-notice');target.textContent=text;target.hidden=!text;target.classList.toggle('error',error);};
+  const label=(text,node)=>{const outer=el('label',text);outer.append(node);return outer;};
+  async function api(path,{method='GET',body}={}) {
+    const current=epoch;
+    const response=await fetch(`/api/v1/owner${path}`,{method,credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...(body===undefined?{}:{'Content-Type':'application/json'}),...(method==='GET'?{}:{'X-CSRF-Token':csrf})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    let data;try{data=await response.json();}catch{throw Error('响应未能识别，请保留输入并重试。');}
+    if(current!==epoch || !logged)throw Error('会话已变化，请重新打开研究记录。');
+    if(!response.ok)throw Error(`${data.error?.message || '操作失败'}${data.error?.request_id?`（${data.error.request_id}）`:''}`);return data;
+  }
+  async function action(name,operation) {
+    if(busy.has(name))return;busy.add(name);const controls=[...document.querySelectorAll('.research-desk button')];const before=controls.map(n=>n.disabled);controls.forEach(n=>n.disabled=true);
+    try{note('');await operation();}catch(e){note(e.message || '暂时无法连接，请保留输入重试。',true);}finally{controls.forEach((n,i)=>n.disabled=before[i]);busy.delete(name);}
+  }
+  const form=(id,operation)=>$(id).addEventListener('submit',event=>{event.preventDefault();action(id,operation);});
+  const click=(id,operation)=>$(id).addEventListener('click',()=>action(id,operation));
+  function clear() {epoch++;logged=false;csrf='';workspaceId='';selectedJob=null;pendingSubmission=null;clearTimeout(pollTimer);for(const id of ['research-workspace','research-sources','research-jobs','research-notebook','sync-source-options','research-job-detail'])$(id).replaceChildren();$('research-job-detail').hidden=true;for(const form of document.querySelectorAll('.research-desk form'))form.reset();for(const id of ['research-usage','research-source-status','research-model-status'])$(id).textContent='';note('');}
+  async function loadSpaces() {
+    const {workspaces}=await api('/workspaces'),old=workspaceId;
+    $('research-workspace').replaceChildren(...workspaces.map(space=>{const option=el('option',space.name);option.value=space.id;return option;}));
+    workspaceId=workspaces.some(w=>w.id===old)?old:workspaces[0]?.id || '';$('research-workspace').value=workspaceId;$('workspace-new-name').value=workspaces.find(w=>w.id===workspaceId)?.name || '';
+  }
+  async function loadSources() {
+    if(!workspaceId){$('research-source-status').textContent='请先创建研究空间。';return;}
+    const data=await api(`/workspaces/${workspaceId}/sources`);
+    $('research-source-status').textContent=`${data.source_count}份当前资料 · 语料 ${data.corpus_revision_id || '尚未建立'} · 同步 ${data.sync_status}${data.last_sync_error?` / ${data.last_sync_error}`:''}`;
+    $('research-sources').replaceChildren(...data.sources.map(source=>{const li=el('li',undefined,'research-source-row'),name=el('span',`${source.title} · ${source.kind==='note'?'个人笔记':source.kind} · ${source.status} · ${source.chunk_count}块`);li.append(name);
+      if(source.status==='active'){const button=el('button','移除','text-button danger');button.type='button';button.addEventListener('click',()=>action('remove-source',async()=>{if(!confirm('从当前资料中移除？历史答案仍保留自己的证据快照。'))return;await api(`/sources/${source.source_id}`,{method:'DELETE',body:{workspace_id:workspaceId}});await loadSources();}));li.append(button);}return li;}));
+  }
+  async function loadModel() {const model=await api('/model');$('research-model-url').value=model.baseUrl;$('research-model-name').value=model.model;$('daily-ask-limit').value=model.dailyLimit;$('research-model-status').textContent=`${model.configured?'模型已配置':'尚未配置可用模型'} · 版本 ${model.version} · 每题最多2次生成；密钥${model.has_api_key?'可用':'未提供'}`;}
+  async function loadJobs(append=false) {
+    const data=await api(`/jobs?limit=20&workspace_id=${encodeURIComponent(workspaceId)}${append&&cursor?`&cursor=${encodeURIComponent(cursor)}`:''}`);cursor=data.next_cursor;$('more-research-jobs').hidden=!cursor;
+    const items=data.items.filter(job=>job.workspace_id===workspaceId).map(job=>{const button=el('button',undefined,'research-job');button.type='button';button.append(el('strong',job.title || job.question),el('small',`${statusName[job.status] || job.status} · ${new Date(job.accepted_at).toLocaleString('zh-CN')}`));button.addEventListener('click',()=>action('view-job',()=>loadJob(job.id || job.job_id)));return button;});
+    if(append)$('research-jobs').append(...items);else{$('research-jobs').replaceChildren(...items);if(!items.length)$('research-jobs').append(el('p','当前页还没有这个空间的问题。','field-note'));}
+    $('research-usage').textContent=`用量记录：${JSON.stringify(await api('/usage'),null,2)}`;
+  }
+  async function refresh() {await loadSpaces();await Promise.all([loadSources(),loadJobs(),loadModel()]);}
+  function editor(job,record) {
+    const result=record.result,formNode=el('form'),headline=el('input');headline.value=result.watch_brief.headline;formNode.append(el('h3','审阅与修改'),label('简报标题（最多40码点）',headline));
+    const bulletNodes=result.watch_brief.bullets.map(b=>{const box=el('div',undefined,'research-edit-row'),text=el('textarea'),refs=el('input');text.rows=2;text.value=b.text;refs.value=b.citation_ids.join(',');box.append(label('结论（最多80码点）',text),label('证据编号，逗号分隔',refs));formNode.append(box);return{text,refs};});
+    const sections=result.sections.map(s=>{const heading=el('input');heading.value=s.heading;formNode.append(label('章节',heading));const statements=s.statements.map(statement=>{const row=el('div',undefined,'research-edit-row'),kind=el('select'),text=el('textarea'),refs=el('input');kind.replaceChildren(...[['fact','资料事实'],['inference','依据资料的推论'],['suggestion','建议']].map(([value,name])=>{const option=el('option',name);option.value=value;return option;}));kind.value=statement.kind;text.value=statement.text;refs.value=statement.citation_ids.join(',');row.append(label('类型',kind),label('正文',text),label('证据编号',refs));formNode.append(row);return{kind,text,refs};});return{heading,statements};});
+    const limits=el('textarea');limits.value=result.limitations.join('\n');limits.rows=3;formNode.append(label('限制与待核对（每行一条）',limits));const save=el('button','保存为新修订','button secondary');save.type='submit';formNode.append(save);
+    const refs=node=>node.value.split(/[,，\s]+/).filter(Boolean);
+    formNode.addEventListener('submit',event=>{event.preventDefault();action('edit-result',async()=>{const edited={schema_version:'1',answer_status:result.answer_status,watch_brief:{headline:headline.value,bullets:bulletNodes.map(b=>({text:b.text.value,citation_ids:refs(b.refs)}))},sections:sections.map(s=>({heading:s.heading.value,statements:s.statements.map(v=>({kind:v.kind.value,text:v.text.value,citation_ids:refs(v.refs)}))})),limitations:limits.value.split('\n').filter(Boolean)};await api(`/jobs/${job.job_id}/result`,{method:'POST',body:{result_revision:record.result_revision,expected_content_hash:record.content_hash,result:edited}});await loadJob(job.job_id);note('已保存新修订；归档前请重新核对。');});});return formNode;
+  }
+  async function loadJob(id) {
+    selectedJob=id;clearTimeout(pollTimer);const job=await api(`/jobs/${id}`);if(selectedJob!==id)return;
+    const target=$('research-job-detail');target.hidden=false;target.replaceChildren(el('h3',job.question),el('p',`${statusName[job.status] || job.status} / ${statusName[job.stage] || job.stage}`,'field-note'));
+    if(job.failure_code)target.append(el('p',`诊断：${job.failure_code}${job.status==='needs_attention'?'。上次模型调用结果未知，可能已产生用量。':''}`));
+    const actions=el('div',undefined,'research-actions');
+    if(['queued','running','waiting_retry'].includes(job.status)){const cancel=el('button','取消任务','text-button danger');cancel.type='button';cancel.addEventListener('click',()=>action('cancel-job',async()=>{await api(`/jobs/${id}/cancel`,{method:'POST',body:{}});await loadJob(id);}));actions.append(cancel);}
+    if(['failed','needs_attention','cancelled','completed'].includes(job.status)){const redo=el('button','明确重新研究','text-button');redo.type='button';redo.addEventListener('click',()=>action('redo-job',async()=>{if(!confirm('创建一个新任务重新研究？可能产生新的模型用量。'))return;const created=await api(`/workspaces/${job.workspace_id}/asks`,{method:'POST',body:{question:job.question,request_id:crypto.randomUUID(),created_at_client:new Date().toISOString(),retry_of:id}});await loadJobs();await loadJob(created.job_id);}));actions.append(redo);}target.append(actions);
+    const record=job.results.find(r=>r.result_revision===job.current_revision);
+    if(record){const result=record.result;target.append(el('h3',result.watch_brief.headline));const list=el('ul');for(const bullet of result.watch_brief.bullets)list.append(el('li',`${bullet.text} ${bullet.citation_ids.join('、')}`));target.append(list);
+      for(const section of result.sections){target.append(el('h3',section.heading));for(const s of section.statements)target.append(el('p',`${({fact:'资料事实',inference:'推论',suggestion:'建议'})[s.kind]}：${s.text} ${s.citation_ids.join('、')}`));}
+      for(const limit of result.limitations)target.append(el('p',limit,'field-note'));
+      const evidence=el('details');evidence.append(el('summary',`原始证据（冻结版本 ${job.corpus_revision_id || '无'}）`));for(const e of job.evidence){evidence.append(el('h3',`${e.id} · ${e.title} · ${e.kind==='note'?'个人笔记':e.kind}`),el('blockquote',e.text),el('code',`快照${e.source_version_id} / SHA256 ${e.sha256} / [${e.start},${e.end}) / ${e.read_at}`));const full=el('button','查看完整原始快照','text-button');full.type='button';full.addEventListener('click',()=>action('full-source',async()=>{const source=await api(`/source-versions/${e.source_version_id}`);const pre=el('pre',source.text);full.replaceWith(pre);}));evidence.append(full);}target.append(evidence);
+      const edit=el('details');edit.append(el('summary',`修改当前修订 ${record.result_revision}`),editor(job,record));target.append(edit);
+      const confirmRow=el('div',undefined,'research-actions');for(const [text,write]of[['确认归档到本地知识',false],['确认归档并写回ThinkFlow',true]]){const button=el('button',text,'button secondary');button.type='button';button.addEventListener('click',()=>action('confirm-result',async()=>{if(!confirm(`已审阅修订${record.result_revision}，${text}？`))return;await api(`/jobs/${id}/confirm`,{method:'POST',body:{result_revision:record.result_revision,expected_content_hash:record.content_hash,write_to_thinkflow:write}});await loadJob(id);}));confirmRow.append(button);}target.append(confirmRow);
+    }
+    for(const entry of job.archives || []){target.append(el('p',`修订${entry.result_revision}：已人工归档 · ${statusName[entry.writeback?.status] || entry.writeback?.status || '未请求写回'}`,'field-note'));if(entry.writeback && ['reconciliation_required','needs_attention','conflict'].includes(entry.writeback.status)){const button=el('button','只读核对已有写回','text-button');button.type='button';button.addEventListener('click',()=>action('reconcile',async()=>{await api(`/writebacks/${entry.writeback.intent_id}/reconcile`,{method:'POST',body:{}});await loadJob(id);}));target.append(button);}}
+    const diagnostics=el('details');diagnostics.append(el('summary','阶段与用量记录'),el('pre',JSON.stringify({events:job.events,attempts:job.attempts,calls_used:job.calls_used,max_calls:job.max_calls,retry_of:job.retry_of},null,2)));target.append(diagnostics);
+    const remove=el('button','删除本地任务内容','text-button danger');remove.type='button';remove.addEventListener('click',()=>action('delete-job',async()=>{if(!confirm('删除本地任务、结果与证据？写回文档和历史备份需另行处理，重传不会重建此任务。'))return;await api(`/jobs/${id}`,{method:'DELETE',body:{}});selectedJob=null;target.hidden=true;await loadJobs();}));target.append(remove);
+    if(!['completed','failed','needs_attention','cancelled'].includes(job.status) || (job.archives || []).some(a=>['queued','running'].includes(a.writeback?.status)))pollTimer=setTimeout(()=>{if(logged&&document.visibilityState==='visible'&&selectedJob===id)loadJob(id).catch(e=>note(e.message,true));},5000);
+  }
+  document.addEventListener('research:login',()=>{if(loading||logged)return;logged=true;epoch++;loading=true;api('/session').then(s=>{csrf=s.csrf_token;return refresh();}).catch(e=>note(e.message,true)).finally(()=>loading=false);});
+  document.addEventListener('research:logout',clear);
+  $('research-workspace').addEventListener('change',()=>action('space-change',async()=>{workspaceId=$('research-workspace').value;selectedJob=null;clearTimeout(pollTimer);$('research-job-detail').hidden=true;await Promise.all([loadSources(),loadJobs()]);}));
+  click('refresh-research',refresh);click('more-research-jobs',()=>loadJobs(true));
+  form('import-source-form',async()=>{await api(`/workspaces/${workspaceId}/sources`,{method:'POST',body:{title:$('source-title').value,text:$('source-text').value}});$('source-text').value='';await loadSources();note('资料原文、快照与索引已保存。');});
+  $('source-file-input').addEventListener('change',()=>action('file-import',async()=>{const file=$('source-file-input').files[0];if(!file)return;if(!/\.(txt|md|markdown)$/i.test(file.name)||file.size>400000)throw Error('请选择不超过400KB的TXT或Markdown文件。');const text=await file.text();if([...text].length>100000)throw Error('正文最多100,000个码点。');$('source-title').value=file.name;$('source-text').value=text;}));
+  form('research-ask-form',async()=>{const question=$('research-question').value;if([...question].length>1000)throw Error('问题最多1000个码点。');if(!pendingSubmission||pendingSubmission.question!==question||pendingSubmission.workspace_id!==workspaceId)pendingSubmission={question,workspace_id:workspaceId,request_id:crypto.randomUUID(),created_at_client:new Date().toISOString()};const data=await api(`/workspaces/${workspaceId}/asks`,{method:'POST',body:{question:pendingSubmission.question,request_id:pendingSubmission.request_id,created_at_client:pendingSubmission.created_at_client}});pendingSubmission=null;await loadJobs();await loadJob(data.job_id);note('后台已接受任务。可关闭页面，稍后返回查看。');});
+  form('research-model-form',async()=>{const api_key=$('research-model-key').value;$('research-model-key').value='';await api('/model',{method:'POST',body:{provider:'openai',baseUrl:$('research-model-url').value,model:$('research-model-name').value,dailyLimit:Number($('daily-ask-limit').value),...(api_key?{api_key}:{})}});await loadModel();});
+  click('research-connection-check',async()=>note(JSON.stringify(await api('/model/connection-check',{method:'POST',body:{}}))));
+  click('research-generation-check',async()=>{if(!confirm('使用公开固定样本真实生成一次？会使用模型额度。'))return;note(JSON.stringify(await api('/model/generation-check',{method:'POST',body:{}})));});
+  form('rename-workspace-form',async()=>{await api(`/workspaces/${workspaceId}`,{method:'POST',body:{name:$('workspace-new-name').value}});await refresh();});
+  click('delete-research-workspace',async()=>{if(!workspaceId||!confirm('删除整个当前空间及其本地资料、Capture、任务与结果？这不会清除远端ThinkFlow或历史备份。'))return;await api(`/workspaces/${workspaceId}`,{method:'DELETE',body:{}});selectedJob=null;$('research-job-detail').hidden=true;await refresh();});
+  click('make-private-backup',async()=>note(JSON.stringify(await api('/backup',{method:'POST',body:{}}))));click('check-readiness',async()=>note(JSON.stringify(await api('/readiness'))));
+  click('load-notebooks',async()=>{const data=await api('/thinkflow/notebooks');$('research-notebook').replaceChildren(...data.notebooks.map(n=>{const option=el('option',n.name);option.value=n.id;return option;}));});
+  click('load-notebook-sources',async()=>{const data=await api(`/thinkflow/notebooks/${encodeURIComponent($('research-notebook').value)}/sources`);$('sync-source-options').replaceChildren(...data.sources.map(source=>{const input=el('input');input.type='checkbox';input.value=source.id;return label(source.name,input);}));});
+  click('sync-notebook',async()=>{const source_ids=[...$('sync-source-options').querySelectorAll('input:checked')].map(i=>i.value);if(!source_ids.length)throw Error('请至少选择一份实际资料。');const notebook_id=$('research-notebook').value;await api(`/workspaces/${workspaceId}/bind`,{method:'POST',body:{notebook_id}});await api(`/workspaces/${workspaceId}/sync`,{method:'POST',body:{notebook_id,source_ids}});await loadSources();note('已同步并发布新的可检索资料版本。');});
+})();

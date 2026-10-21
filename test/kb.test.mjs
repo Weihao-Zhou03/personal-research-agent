@@ -201,3 +201,28 @@ test('KB indexing failure keeps original capture and queued intent becomes expli
   store.db.prepare("UPDATE workspaces SET status='active' WHERE id=?").run(workspace);
   assert.equal(kb.indexPendingCaptures().indexed, 1);
 });
+
+test('KB source soft deletion excludes new corpus while preserving historical evidence and rejecting cross-space deletion', t => {
+  const { kb, workspace, other } = fixture(t);
+  const imported = kb.importText({ workspaceId: workspace, title: '模型原文', text: '模型的旧证据需要保留。' });
+  const frozen = kb.evidence(workspace, imported.corpus_revision_id, '模型');
+  assert.throws(() => kb.deleteSource(other, imported.source_id), error => error.code === 'SOURCE_NOT_AVAILABLE');
+  const deletion = kb.deleteSource(workspace, imported.source_id);
+  assert.notEqual(deletion.corpus_revision_id, imported.corpus_revision_id);
+  assert.deepEqual(kb.evidence(workspace, deletion.corpus_revision_id, '模型'), []);
+  assert.equal(kb.getVersion(imported.source_version_id).text, '模型的旧证据需要保留。');
+  assert.ok(kb.validateEvidence(workspace, imported.corpus_revision_id, frozen));
+  assert.equal(kb.deleteSource(workspace, imported.source_id).corpus_revision_id, deletion.corpus_revision_id);
+});
+
+test('KB explicit workspace purge removes its raw/index/corpus data and preserves another workspace', t => {
+  const { kb, workspace, other, store } = fixture(t);
+  const deleted = kb.importText({ workspaceId: workspace, title: '删除模型资料', text: '待删除模型原文。' });
+  const kept = kb.importText({ workspaceId: other, title: '保留模型资料', text: '另外空间模型原文。' });
+  assert.equal(kb.purgeWorkspace(workspace).purged, true);
+  assert.equal(kb.currentRevision(workspace), null); assert.equal(kb.getVersion(deleted.source_version_id), null);
+  assert.equal(kb.getVersion(kept.source_version_id).text, '另外空间模型原文。');
+  assert.equal(kb.evidence(other, kept.corpus_revision_id, '模型').length, 1);
+  assert.equal(store.db.prepare('SELECT count(*) AS n FROM chunks_fts').get().n, 1);
+  assert.equal(store.db.prepare('PRAGMA foreign_key_check').all().length, 0);
+});

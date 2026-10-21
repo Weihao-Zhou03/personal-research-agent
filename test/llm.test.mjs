@@ -32,7 +32,9 @@ test('Unicode limits and brief facts are checked independently of byte limits',(
   const long=result();long.watch_brief.headline='🙂'.repeat(41);assert.throws(()=>validateResult(long,evidence()),/INVALID_RESULT/);
   long.watch_brief.headline='🙂'.repeat(40);validateResult(long,evidence());
   const tooMany=result();tooMany.watch_brief.bullets=Array.from({length:4},()=>({text:'结论',citation_ids:['E1']}));assert.throws(()=>validateResult(tooMany,evidence()),/INVALID_RESULT/);
-  const shortage=result();shortage.answer_status='insufficient_evidence';assert.throws(()=>validateResult(shortage,evidence()),/INVALID_RESULT/);
+  // §8.3 permits evidence-backed statements explaining a gap in a normal refusal.
+  const shortage=result();shortage.answer_status='insufficient_evidence';validateResult(shortage,evidence());
+  shortage.sections[0].statements[0].citation_ids=[];assert.throws(()=>validateResult(shortage,evidence()),/INVALID_RESULT/);
 });
 
 test('Generation uses a conservative UTF8 byte bound and freezes the actual evidence subset',()=> {
