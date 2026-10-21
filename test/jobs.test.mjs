@@ -103,6 +103,17 @@ test('Cancellation commits before Abort and a late valid response cannot write a
   const job=f.jobs.get(a.response.job_id);assert.equal(job.status,'cancelled');assert.equal(job.results.length,0);assert.equal(job.attempts[0].usage.total_tokens,22);
 });
 
+test('Deleting a running Ask erases private rows and the tombstone prevents resurrection after a late response',async t=> {
+  let release,entered;const started=new Promise(resolve=>{entered=resolve;});
+  const f=await fixture(t,{fetchImpl:async()=>{entered();return new Promise(resolve=>{release=resolve;});}}),input=f.input(),a=f.jobs.submit(input);
+  const execution=f.jobs.runOnce();await started;f.jobs.remove(a.response.job_id);release(response());await execution;
+  assert.throws(()=>f.jobs.get(a.response.job_id),e=>e.code==='JOB_NOT_FOUND');
+  assert.throws(()=>f.jobs.submit({...input,deviceId:'repaired-device'}),e=>e.code==='RESOURCE_DELETED');
+  assert.throws(()=>f.jobs.submit({...input,question:'另一个正文'}),e=>e.code==='IDEMPOTENCY_CONFLICT');
+  for(const table of ['research_job_evidence','research_job_attempts','research_job_events','research_results','research_jobs']) assert.equal(f.store.db.prepare(`SELECT count(*) n FROM ${table}`).get().n,0);
+  assert.equal(f.jobs.remove(a.response.job_id).status,'deleted');assert.equal(f.calls,1);
+});
+
 test('Cross-space or stale evidence cannot reach the model or become a result',async t=> {
   const f=await fixture(t),original=f.knowledge.evidence.bind(f.knowledge);
   f.knowledge.evidence=(...args)=>original(...args).map(e=>({...e,workspace_id:'foreign-space'}));const a=f.jobs.submit(f.input());
