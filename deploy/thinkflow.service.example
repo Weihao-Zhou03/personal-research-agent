@@ -1,0 +1,26 @@
+[Unit]
+Description=Pinned ThinkFlow private loopback integration
+After=network-online.target
+
+[Service]
+Type=simple
+User=personalagent
+Group=personalagent
+WorkingDirectory=/var/lib/personal-research-agent/thinkflow/source
+Environment=THINKFLOW_SOURCE_ROOT=/var/lib/personal-research-agent/thinkflow/source
+Environment=THINKFLOW_PORT=8437
+Environment=ANONYMIZED_TELEMETRY=False
+Environment=XDG_CACHE_HOME=/var/lib/personal-research-agent/thinkflow/cache
+Environment=MPLCONFIGDIR=/var/lib/personal-research-agent/thinkflow/cache/matplotlib
+ExecStart=/var/lib/personal-research-agent/thinkflow/venv/bin/python /var/lib/personal-research-agent/thinkflow/run-linux.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/personal-research-agent/thinkflow /var/lib/personal-research-agent/thinkflow-outputs
+
+[Install]
+WantedBy=multi-user.target

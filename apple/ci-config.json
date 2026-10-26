@@ -1,0 +1,9 @@
+{
+  "synthetic": true,
+  "APPLE_TEAM_ID": "CI00000000",
+  "APP_BUNDLE_ID": "org.ci.personalresearch",
+  "WATCH_BUNDLE_ID": "org.ci.personalresearch.watchkitapp",
+  "API_BASE_URL": "https://ci-backend.invalid",
+  "MARKETING_VERSION": "0.3.0",
+  "CURRENT_PROJECT_VERSION": "100"
+}

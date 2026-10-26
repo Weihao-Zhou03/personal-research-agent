@@ -2,12 +2,14 @@
 param(
     [switch]$NoBrowser,
     [switch]$SkipProxy,
-    [switch]$SkipThinkFlow
+    [switch]$SkipThinkFlow,
+    [switch]$StartOllama
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($env:PERSONAL_AGENT_MODE -eq 'server') { throw 'Server mode requires explicit HTTPS proxy configuration. Start node server.mjs directly; this launcher manages only the local desktop workspace.' }
 $runtimeRoot = Join-Path $projectRoot '.runtime'
 $serverPath = Join-Path $projectRoot 'server.mjs'
 $ollamaExe = Join-Path $runtimeRoot 'ollama\ollama.exe'
@@ -33,7 +35,7 @@ function Test-LocalPort([int]$Port) {
 function Test-AppReady {
     try {
         $state = Invoke-RestMethod -Uri "$appUrl/api/state" -TimeoutSec 2
-        return $state.runtime.localOnly -eq $true -and $state.runtime.storage -eq 'data/workspace.json' -and $state.runtime.version -eq '0.1.0'
+        return $state.runtime.localOnly -eq $true -and $state.runtime.storage -in @('data/workspace.json','sqlite') -and $state.runtime.version -eq '0.1.0'
     } catch { return $false }
 }
 
@@ -118,7 +120,9 @@ try {
         throw 'Port 4317 is occupied by an unrecognized service. No existing process was stopped.'
     }
 
-    if (Test-OllamaReady) {
+    if (-not $StartOllama) {
+        Write-Host 'Local model startup is disabled by default. Use -StartOllama only for the legacy local selection mode.'
+    } elseif (Test-OllamaReady) {
         Write-Host 'Reusing Ollama at http://127.0.0.1:11434.'
         Register-SetupOllama
     } elseif (Test-LocalPort 11434) {

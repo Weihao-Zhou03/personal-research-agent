@@ -1,0 +1,12 @@
+{
+  "APPLE_TEAM_ID": "REPLACE_TEAM_ID",
+  "APP_BUNDLE_ID": "org.example.personalresearch",
+  "WATCH_BUNDLE_ID": "org.example.personalresearch.watchkitapp",
+  "ASC_APP_ID": "REPLACE_NUMERIC_APP_ID",
+  "ASC_KEY_ID": "REPLACE_KEY_ID",
+  "ASC_ISSUER_ID": "REPLACE_ISSUER_ID",
+  "API_BASE_URL": "https://agent.example.invalid",
+  "MARKETING_VERSION": "0.3.0",
+  "CURRENT_PROJECT_VERSION": "REPLACE_INCREASING_BUILD_NUMBER",
+  "ASC_INTERNAL_TEST_GROUP_ID": ""
+}

@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+Generated/
+*.xcodeproj/
+*.xcarchive/
+*.xcresult/
+DerivedData/
+delivery-local.json
+*.p12
+*.p8
+*.mobileprovision
