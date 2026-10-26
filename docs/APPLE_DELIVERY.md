@@ -4,6 +4,20 @@
 
 历史196e2c4的run39567460679通过23项；最新结果已覆盖只读Feed、本机清理fencing、配置注入及Xcode帮助stdout/stderr核查。签名/ASC相关工具仍为合成测试，真实Apple账户流程未运行。
 
+## 先区分免费自用与TestFlight（2026-10-26核对）
+
+当前先完成Windows电脑端试用，不要求用户立即购买会员、Mac或服务器。设计中的原生Watch交付与常开验收仍是目标；这里补充安装路径的成本与条件，不修改设计完成标准。
+
+| 路径 | 前提 | 能做什么与当前边界 |
+| --- | --- | --- |
+| 免费Personal Team | 可以运行兼容Xcode的Mac、个人Apple Account、可配对的真实设备 | Apple允许在个人设备安装测试；profile签发7天后到期，需要重新构建安装。本项目尚未实测此路径，不把它包装成Windows一键安装 |
+| GitHub macOS编译与无签名归档 | 当前仓库Actions | 已真实通过；不需要Apple Secrets，但构建产物不等于可在手表上安装的发行包 |
+| GitHub签名并上传TestFlight | Apple Developer Program与App Store Connect权限、有效签名材料、受保护Secrets与明确发布授权 | 不要求用户自己购买Mac，但不能省略Apple签名和分发资格；本项目已有工具，真实签名/上传/安装仍未运行 |
+
+Apple公开会员价格为每年99美元或当地币种价格，以实际注册页面为准。测试者安装TestFlight本身不要求购买开发者会员；本项目开发方将构建上传至TestFlight需要具备会员及相应权限。GitHub runner可导入证书/profile执行签名，不提供Apple会员或设备安装授权。目前没有已验证的“只有Windows + GitHub + 免费账号”原生Watch安装方案。
+
+官方依据：[个人账号与7天限制](https://developer.apple.com/help/account/basics/about-your-developer-account)、[Xcode个人设备运行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices)、[会员与TestFlight](https://developer.apple.com/programs/)、[会员价格](https://developer.apple.com/help/account/membership/program-enrollment/)、[GitHub runner签名](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)。这是文档核对，不是实际安装证据。
+
 ## M0A 已实现与真实构建证据
 
 - `apple/project.yml`：XcodeGen 2.46.0（提交 `8445e778451c7e44237b90281bde622d764b0084`），明确 Xcode 26.6、watchOS 10.0 Deployment Target 和共享 scheme。
