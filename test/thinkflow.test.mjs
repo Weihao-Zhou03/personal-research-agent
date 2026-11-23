@@ -9,7 +9,7 @@ import {ThinkFlowClient} from '../lib/thinkflow.mjs';
 import {createApp} from '../server.mjs';
 import {processTask} from '../lib/processor.mjs';
 
-async function fixture(t) {
+async function fixture(t,{storage='json'}={}) {
   const native = {docs:[],text:'原文：缩放点积注意力除以 Key 维度的平方根。\n待验证：设备延迟需要实测。',failAfterWrite:false,holdWrite:null,calls:[],readBackMismatch:false};
   const upstream=http.createServer(async(req,res)=> {
     const url=new URL(req.url,'http://localhost');
@@ -39,7 +39,7 @@ async function fixture(t) {
   const dir=await mkdtemp(path.join(tmpdir(),'pa-thinkflow-'));
   const apps=[];
   async function start() {
-    const app=await createApp({dataDir:dir,thinkflowClient:adapter}); apps.push(app);
+    const app=await createApp({dataDir:dir,thinkflowClient:adapter,storage}); apps.push(app);
     await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
     const url=`http://127.0.0.1:${app.server.address().port}`;
     async function request(route,body,method=body===undefined?'GET':'POST') {
@@ -123,6 +123,22 @@ test('Concurrent confirmations create one document; read-back mismatch never rec
   assert.equal((await client.request(`/api/tasks/${task.id}/archive`,{})).status,201);
   assert.equal(native.docs.length,1);
 });
+
+test('SQLite preserves source snapshots, confirmation lock and lost-write recovery across restart',async t=> {
+  const {start,native}=await fixture(t,{storage:'sqlite'});let client=await start();const task=await completed(client);
+  assert.equal(native.docs.length,0);
+  const reviewed='# 人工确认\n\n保留平方根与来源。';native.failAfterWrite=true;
+  assert.equal((await client.request(`/api/tasks/${task.id}/archive`,{content:reviewed})).status,502);
+  assert.equal((await client.request('/api/state')).body.knowledge.length,0);
+  await client.app.close();client=await start();
+  const restored=(await client.request('/api/state')).body.tasks.find(item=>item.id===task.id);
+  assert.deepEqual(restored.thinkflow.sources,task.thinkflow.sources);
+  assert.equal(restored.writebackIntent.content,reviewed);
+  assert.equal((await client.request(`/api/tasks/${task.id}/archive`,{content:'changed'})).status,409);
+  const recovered=await client.request(`/api/tasks/${task.id}/archive`,{});
+  assert.equal(recovered.status,201);assert.equal(recovered.body.content,reviewed);assert.equal(native.docs.length,1);
+  assert.equal((await client.request('/api/state')).body.knowledge.length,1);
+});
 test('Changed sources invalidate the preview, and service or content conflicts cannot overwrite documents',async t=> {
   const {start,adapter,native}=await fixture(t); const client=await start();
   const preview=await adapter.readSources('nb1',['s1']); native.text+='新内容';
@@ -139,4 +155,12 @@ test('ThinkFlow provenance appendix identifies the actual snapshot and source pa
   assert.match(result.markdown,/ThinkFlow 笔记本/); assert.match(result.markdown,/TF1/); assert.match(result.markdown,/不代表向量检索/);
   assert.match(result.markdown,/材料 1 至 2/);
   assert.throws(()=>new ThinkFlowClient({baseUrl:'https://remote.example'}),/仅支持本机/);
+});
+
+test('M2 raw snapshots preserve whitespace while legacy source hashes keep their original trim behavior',async t=> {
+  const {adapter,native}=await fixture(t);native.text='  原始资料\n保留边界🙂  \n';
+  const raw=await adapter.readSources('nb1',['s1'],{preserveWhitespace:true});
+  const legacy=await adapter.readSources('nb1',['s1']);
+  assert.equal(raw.sources[0].content,native.text);assert.equal(legacy.sources[0].content,native.text.trim());
+  assert.notEqual(raw.sources[0].sha256,legacy.sources[0].sha256);
 });

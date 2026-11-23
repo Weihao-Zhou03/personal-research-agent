@@ -1,0 +1,14 @@
+{
+  "schema_version": "1",
+  "pairing_vector": {
+    "random_bytes_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "device_secret": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "device_secret_hash": "ea866a757e4c38babfa8127cbe9a409d3e1f93a00ff1488ff735fcf917afffd0"
+  },
+  "capture_request": {
+    "client_request_id": "976018c1-6d5b-4b8f-b7b2-e210df6a7d10",
+    "body": {"workspace_id":"ws_fixture","text":"  对比中文研究与 AI 方法。\n保留原文🙂  ","created_at_client":"2026-10-21T09:00:00Z"}
+  },
+  "capture_response": {"schema_version":"1","capture_id":"cap_fixture","workspace_id":"ws_fixture","status":"saved","index_status":"pending","accepted_at":"2026-10-21T09:00:01Z"},
+  "error_response": {"error":{"code":"IDEMPOTENCY_CONFLICT","message":"相同请求编号对应不同内容","retryable":false,"request_id":"req_fixture"}}
+}

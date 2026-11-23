@@ -1,0 +1,32 @@
+[Unit]
+Description=Personal Research Agent single-node backend
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=personalagent
+Group=personalagent
+WorkingDirectory=/opt/personal-research-agent
+EnvironmentFile=/etc/personal-research-agent.env
+ExecStartPre=/opt/node-v24.19.0-linux-x64/bin/node -e "if(process.version!=='v24.19.0')process.exit(1)"
+ExecStart=/opt/node-v24.19.0-linux-x64/bin/node server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/personal-research-agent /var/backups/personal-research-agent
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily verified Personal Research Agent backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=personal-research-agent-backup.service
+
+[Install]
+WantedBy=timers.target

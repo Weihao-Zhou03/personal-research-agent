@@ -12,6 +12,12 @@ __pycache__/
 *.py[cod]
 *.pem
 *.key
+*.p8
+*.p12
+*.mobileprovision
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 .DS_Store
 Thumbs.db
 test-output/

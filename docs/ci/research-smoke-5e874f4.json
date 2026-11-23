@@ -1,0 +1,136 @@
+{
+  "schema_version": "1",
+  "status": "passed",
+  "started_at": "2026-10-21T08:57:19.526Z",
+  "completed_at": "2026-10-21T08:57:31.487Z",
+  "input_status": "public_synthetic_only",
+  "model": {
+    "name": "gpt-6-luna",
+    "endpoint": "http://127.0.0.1:8317/v1",
+    "real_generation_calls": 1,
+    "usage": {
+      "calls": 1,
+      "known_usage_calls": 1,
+      "unknown_usage_calls": 0,
+      "usage_status": "known",
+      "accepted_asks": 1,
+      "daily": [
+        {
+          "day": "2026-10-21",
+          "accepted_asks": 1
+        }
+      ],
+      "measured_usage": {
+        "prompt_tokens": 840,
+        "completion_tokens": 343,
+        "total_tokens": 1183
+      }
+    }
+  },
+  "application": {
+    "actual_HTTP": true,
+    "actual_SQLite": true,
+    "production_data_untouched": true,
+    "temporary_data_removed": true
+  },
+  "upstream": {
+    "service": "http://127.0.0.1:18437",
+    "commit": "1eecae5d6e0423ee047702a5b9193ffb2f0ea6c3",
+    "notebook_id": "local_1792573039523_b4d4a27c",
+    "source_id": "file-公开合成检索实验.md_1792573039.md-1792573039",
+    "document_id": "doc_50d0d488ed30",
+    "retained_for_review": true
+  },
+  "verification": {
+    "direct_import_raw_text_preserved": true,
+    "actual_ThinkFlow_sync": true,
+    "simulated_watch_pairing": true,
+    "capture_replayed_same_ID": true,
+    "capture_indexed_without_model": true,
+    "ask_first_status": 202,
+    "ask_replay_status": 200,
+    "ask_replayed_same_ID": true,
+    "corpus_revision_id": "corpus_daf72b8b-5f75-4550-96d2-06f3cc4bfc0f",
+    "job_id": "job_aa5be656-495b-470e-bdee-4f14f3cd609e",
+    "frozen_citation_hash_and_position": true,
+    "read_endpoints_no_generation": true,
+    "edited_result_revision": 2,
+    "confirmation_same_intent": true,
+    "actual_writeback_and_readback": true,
+    "manual_reconciliation_verified": true
+  },
+  "public_result": {
+    "answer_status": "answered",
+    "watch_brief": {
+      "headline": "公开合成实验：检索对比（已审阅）",
+      "bullets": [
+        {
+          "text": "固定测试的60份合成中文课堂笔记中，纯分词BM25的Recall@8为0.78。",
+          "citation_ids": [
+            "E1"
+          ]
+        },
+        {
+          "text": "同一批测试中，加入两字词与AI缩写补召回后，Recall@8为0.88；结果仅适用于这批合成笔记。",
+          "citation_ids": [
+            "E1"
+          ]
+        },
+        {
+          "text": "实验未覆盖扫描PDF和口语同义改写，不能据此宣称所有中文资料的检索质量都会提升。",
+          "citation_ids": [
+            "E1"
+          ]
+        }
+      ]
+    },
+    "evidence_count": 3,
+    "citations_count": 1
+  },
+  "not_verified": [
+    "Watch_real_device",
+    "Keychain",
+    "offline_native_outbox",
+    "public_HTTPS",
+    "TestFlight",
+    "always_on_host",
+    "general_model_quality"
+  ],
+  "stages": [
+    {
+      "stage": "verify_isolated_upstream",
+      "at": "2026-10-21T08:57:19.527Z"
+    },
+    {
+      "stage": "start_private_application",
+      "at": "2026-10-21T08:57:19.626Z"
+    },
+    {
+      "stage": "owner_import_and_sync",
+      "at": "2026-10-21T08:57:19.819Z"
+    },
+    {
+      "stage": "simulated_watch_pair_capture",
+      "at": "2026-10-21T08:57:19.997Z"
+    },
+    {
+      "stage": "real_model_ask_and_replay",
+      "at": "2026-10-21T08:57:21.162Z"
+    },
+    {
+      "stage": "verify_frozen_citations_and_zero_call_reads",
+      "at": "2026-10-21T08:57:30.122Z"
+    },
+    {
+      "stage": "edit_and_explicitly_confirm_revision",
+      "at": "2026-10-21T08:57:30.246Z"
+    },
+    {
+      "stage": "completed",
+      "at": "2026-10-21T08:57:31.487Z"
+    }
+  ],
+  "source_commit_sha": "5e874f40a208ebee6f1fb11400e9950efaeb0828",
+  "working_tree_dirty": false,
+  "script_sha256": "1e2cce049288589db360a61adb607777a0630f1c66bcbc5600f4adaaa241c4c9"
+}

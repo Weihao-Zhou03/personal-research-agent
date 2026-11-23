@@ -1,0 +1,16 @@
+# Replace this exact host and PERSONAL_AGENT_PUBLIC_ORIGIN together.
+agent.example.invalid {
+	reverse_proxy 127.0.0.1:4317 {
+		# Caddy and backend run on this one machine. Never trust headers supplied by clients.
+		header_up -Forwarded
+		header_up -X-Forwarded-*
+		header_up Host {http.request.host}
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {http.request.host}
+		header_up X-Forwarded-For {http.request.remote.host}
+	}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+}

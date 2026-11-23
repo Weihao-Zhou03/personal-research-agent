@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "status": "unsigned_structure_only",
+  "wrapper_bundle_id": "org.example.personalresearch",
+  "watch_bundle_id": "org.example.personalresearch.watchkitapp",
+  "version": "0.2.0",
+  "build": "1",
+  "checks": {
+    "watch_only_wrapper": true,
+    "single_target_watch_app": true,
+    "independent": true,
+    "companion_bundle_matches_root": true,
+    "version_matches": true,
+    "build_matches": true,
+    "watch_executable_present": true,
+    "no_legacy_watchkit_extension": true
+  },
+  "not_verified": [
+    "distribution_signing",
+    "export",
+    "ASC_upload_and_processing",
+    "TestFlight",
+    "real_device"
+  ]
+}

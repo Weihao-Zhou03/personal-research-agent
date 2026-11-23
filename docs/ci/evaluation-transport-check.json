@@ -1,0 +1,273 @@
+{
+  "schema_version": "1",
+  "source_commit_sha": "5e874f40a208ebee6f1fb11400e9950efaeb0828",
+  "check": "Pure local rebuild after adding store:false; no model calls or answer reevaluation",
+  "model_calls": 0,
+  "questions": 36,
+  "changed_evidence": [],
+  "all_bounded": true,
+  "artifacts": [
+    {
+      "path": "eval/results/model-v2-main.json",
+      "sha256": "5bb6c40fff5e9b35fac445139291b152d54ad1b87230c69a7a3254bf8397b9ab"
+    },
+    {
+      "path": "eval/results/model-v2-tail.json",
+      "sha256": "68158adadadcd996a8fa63fca50ab875db5f34e1cef9e6bab6d2a4ec1448c78e"
+    }
+  ],
+  "cases": [
+    {
+      "id": "q01",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7749,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q02",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7662,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q03",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 5564,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q04",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7543,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q05",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 6235,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q06",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7669,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q07",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7667,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q08",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 6222,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q09",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7844,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q10",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7474,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q11",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 6212,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q12",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7659,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q13",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7412,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q14",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 4353,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q15",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7524,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q16",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7677,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q17",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7327,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q18",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 5245,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q19",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7477,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q20",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7463,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q21",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7691,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q22",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 6870,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q23",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7659,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q24",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7423,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q25",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 6089,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q26",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7394,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q27",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7599,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q28",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7437,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q29",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7439,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q30",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7597,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q31",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7428,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q32",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7691,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q33",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7399,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q34",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7485,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q35",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7594,
+      "bounded": true,
+      "store": false
+    },
+    {
+      "id": "q36",
+      "evidence_ids_unchanged": true,
+      "input_token_upper_bound": 7514,
+      "bounded": true,
+      "store": false
+    }
+  ]
+}
