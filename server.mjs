@@ -430,7 +430,8 @@ export async function createApp({ dataDir = path.join(root, 'data'), processor =
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PERSONAL_AGENT_PORT || 4317);
   const config=configFromEnvironment(root);
-  const app = await createApp({ ...config,detectProxy: config.mode==='local' });
+  const thinkflowClient = new ThinkFlowClient({ baseUrl: process.env.PERSONAL_AGENT_THINKFLOW_BASE_URL });
+  const app = await createApp({ ...config,thinkflowClient,detectProxy: config.mode==='local' });
   app.server.listen(port, config.listenHost, () => console.log(`Personal Agent ready: ${config.mode==='server'?config.publicOrigin:`http://${config.listenHost}:${port}`}`));
   app.server.on('error', error => { console.error(`启动失败：${error.code === 'EADDRINUSE' ? '端口已被占用' : error.message}`); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await app.close(); process.exit(0); });

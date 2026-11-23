@@ -5,8 +5,8 @@ if [[ "$(uname -s)" != Darwin ]]; then
   exit 1
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-export DEVELOPER_DIR=/Applications/Xcode_26.6.app/Contents/Developer
-[[ -d "$DEVELOPER_DIR" ]] || { echo 'Required Xcode 26.6 is not installed.' >&2; exit 1; }
+export DEVELOPER_DIR="${APPLE_CHECK_DEVELOPER_DIR:-/Applications/Xcode_26.6.app/Contents/Developer}"
+[[ -d "$DEVELOPER_DIR" ]] || { echo "Xcode developer directory not found: $DEVELOPER_DIR" >&2; exit 1; }
 xcodebuild -version
 xcodebuild -showsdks
 swift --version
