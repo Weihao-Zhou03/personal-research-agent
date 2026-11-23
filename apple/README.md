@@ -22,4 +22,4 @@ Capture和Ask共用100条、1MiB的未确认容量，单条分别最多4000/1000
 
 当前业务补丁新增7项Swift回归（总计30项），覆盖只读列表、身份与清理隔离、迟到响应、退避、旧journal迁移及显式删除；已经在上述最终macOS CI确认30项通过、编译与无签名归档通过，Windows本机没有运行Apple SDK。以上行为仍需真机、真实HTTPS服务与实际断网恢复验证。
 
-更多分发门槛、配置清单与未完成事项见 [APPLE_DELIVERY.md](../docs/APPLE_DELIVERY.md)。
+在新 Mac 上接手或进行免费的本地真机试装，见 [Mac 接手与真机验证](../docs/APPLE_DELIVERY.md#mac-接手与真机验证)。TestFlight 配置和验收表见同页后续章节。

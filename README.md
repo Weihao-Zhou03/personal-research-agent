@@ -2,7 +2,7 @@
 
 目标设计为 [WATCH_PRODUCT_DESIGN.md](docs/WATCH_PRODUCT_DESIGN.md)。当前代码已加入SQLite原文Capture、中文词法检索、后端持久Ask、结构化简报、人工审阅与确认后ThinkFlow写回。Capture和已完成结果读取不调用模型；Watch不部署模型。M0A已有真实云构建证据，**签名分发、真机验收与常开公网部署仍未完成**；每轮测试、真实服务和设备证据分别记在[验证记录](docs/VERIFICATION.md)。
 
-先看 [阶段交接](PROJECT_HANDOFF.md)。电脑隔离试用见 [运行与恢复](docs/CAPTURE_SETUP.md)，Linux配置与备份见 [部署说明](deploy/README.md)，Apple工程与分发见 [APPLE_DELIVERY.md](docs/APPLE_DELIVERY.md)。现用JSON没有自动迁移，旧研究工作台仍保留。
+先看 [阶段交接](PROJECT_HANDOFF.md)。换到 Mac 继续开发或实测手表，见 [Mac 接手与真机验证](docs/APPLE_DELIVERY.md#mac-接手与真机验证)。电脑隔离试用见 [运行与恢复](docs/CAPTURE_SETUP.md)，Linux 配置与备份见 [部署说明](deploy/README.md)。现用 JSON 没有自动迁移，旧研究工作台仍保留。
 
 ## 新研究链路
 

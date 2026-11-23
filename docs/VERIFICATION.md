@@ -2,6 +2,12 @@
 
 2026-10-21；PR [#1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1)。最终程序源码为 `5e874f40a208ebee6f1fb11400e9950efaeb0828`。后续证据/文档提交不改变程序源码，不把设计目标、Mock、编译或IPA当作真机交付。
 
+## 2026-11-23 Mac 接手
+
+用户确认已有 Mac。接手步骤见 [Mac 接手与真机验证](APPLE_DELIVERY.md#mac-接手与真机验证)。沿用 PR #1 和 `codex/watch-capture`，先核对设备及 Xcode 兼容性，复现构建，然后尝试免费 Personal Team 本地签名和安装。桌面试用继续用隔离 SQLite 数据。
+
+本次交接在 Windows 整理并复核历史 CI 日志。Mac 本机 Apple SDK 构建、开发签名、安装、Watch HTTPS 诊断、TestFlight 和常开部署均未运行。既有 CI 和真实服务记录仍绑定原源码 SHA。交接提交的本地测试结果见 PR #1。
+
 ## 2026-10-26执行方式与安装条件更新
 
 用户改为由Codex主导自审与实施，不再等待另一个ChatGPT审查；当前选择先完成Windows电脑端试用，暂不购买或部署服务器/域名，不执行Apple付费、签名上传或合并。已有Watch/iPhone，型号与系统尚待确认；本地Mac和付费Apple会员均未具备。`APPLE_DELIVERY.md`补充官方免费Personal Team与GitHub/TestFlight的区别，未将免费安装方案标为实测成功。
@@ -95,10 +101,10 @@ Apple历史证据：首轮run39562283553失败于Swift泛型函数内嵌类型�
 
 未运行：实际Apple签名/导出/上传、ASC处理/测试组权限、Missing Compliance操作、TestFlight安装、目标Watch听写/Keychain/断网/切后台/电量/卸载重装/真实HTTPS请求。发布workflow只允许用户审查合并后，对受信main SHA另行明确授权并通过环境review gate执行；本轮没有启用授权变量或读取Apple Secrets。
 
-## 外部操作与集中审查
+## 后续验证与外部操作
 
-1. 集中审查PR及公开评测，特别是q13条件遗漏与q32未知调用；决定是否接受首版质量并在后续审查意见中指定调整。不要把AI初审替代人工验收。
+1. Codex 在 PR #1 自审并复核公开评测。重点检查 q13 条件遗漏与 q32 未知调用，完成隔离桌面端确认回写的网页操作验收。人工支持度核查仍待完成。
 2. 选定常开Linux主机及真实域名/DNS/TLS，按部署说明安装服务/私有备份；在目标主机配置可达模型服务。云主机的127.0.0.1不能访问Windows代理。
-3. 在Apple/GitHub安全界面准备Team/bundle/ASC App、P12/profiles/ASC team key及受保护环境，秘密不贴聊天；确认目标Watch+iPhone型号和系统。按 `docs/APPLE_DELIVERY.md` 操作。
-4. 用户决定合并后再授权指定main SHA签名上传，确认ASC处理/合规/TestFlight可见性，实际安装并按设计§17.3真机场景逐项填写结果。
+3. 用户确认目标 Watch 和 iPhone 的型号与系统，在 Xcode 登录 Apple Account、信任设备并启用开发者模式。先尝试本地试装，再按设计 §17.3 逐项记录。首次真实 HTTPS 响应至少记录版本和 request_id。
+4. 若用户后续选择 TestFlight，再准备 Team、bundle、ASC App、签名材料和受保护环境。由用户决定合并并另行授权指定 main SHA 的签名上传，按 [分发说明](APPLE_DELIVERY.md) 记录处理、合规和安装结果。
 5. 若切换现用数据，另行审查私有路径、停旧写入者、备份并显式迁移；本轮没有迁移或清除用户现有data，不自动合并PR。
