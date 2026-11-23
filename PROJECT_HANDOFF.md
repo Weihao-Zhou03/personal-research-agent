@@ -1,9 +1,8 @@
 # 当前版本交接
 
-更新时间 2026-11-23。用户已有 Mac，接手时先读 [Mac 接手与真机验证](docs/APPLE_DELIVERY.md#mac-接手与真机验证)。Codex 主导设计核对、自审、实现与验证，继续沿用 [目标设计](docs/WATCH_PRODUCT_DESIGN.md)。
+更新时间 2026-11-23。继续沿用 [目标设计](docs/WATCH_PRODUCT_DESIGN.md)。本机安装与配置入口见 [Mac 接手与真机验证](docs/APPLE_DELIVERY.md#mac-接手与真机验证)。
 
 - [PR #1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1) 继续使用 `codex/watch-capture`，保留阶段提交，暂不合并。
-- M0A 已通过云端无签名构建。M1–M3 已实现记录、资料检索、持久问答、引用、人工审阅和 ThinkFlow 写回核对。M4 的 Linux 部署与备份恢复工具已准备，常开主机尚未部署。
-- 验证源码 `5e874f40a208ebee6f1fb11400e9950efaeb0828`。[后端 CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171787) Windows/Linux 各 135 项通过。[macOS CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171480) 通过 30 项 Swift、17 项工具测试和无签名构建。隔离环境曾用真实模型和 ThinkFlow 跑通写回与读回，细节见 [验证记录](docs/VERIFICATION.md)。
-- Mac 上先核对 Xcode 和设备兼容性，再用免费 Personal Team 尝试本地签名、安装及 Watch 上的真实 HTTPS 诊断。设备型号和系统、开发者模式、Watch 可达的 HTTPS 后端仍待确认。TestFlight 与真机尚未验收。
-- 同时补完桌面网页的确认回写操作验收，复核 q13 简报遗漏「单用户串行」条件和 q32 超时结果未知。使用新建隔离 SQLite 数据目录。原 Windows 数据、代理 OAuth、本机密钥和 ThinkFlow 运行目录需分别管理。
+- Mac 验证源码 `094e956392971c9108a4aa96404e73e9a8b7669a`。本机 Xcode 27.2 通过无签名 Watch 模拟器编译、wrapper 归档及 13 项检查；Node 135 项、Swift 30 项、Python 工具 17 项通过。历史 CI 仍对应 `5e874f40a208ebee6f1fb11400e9950efaeb0828`。
+- Mac 浏览器用隔离 SQLite 与真实本机 ThinkFlow 完成导入、提问、引用核对、编辑及确认写回。q13 重放历史响应，在修订 2 补上「单用户串行」；重复确认仍为一份已核对文档。q32 用受控 HTTP 超时复现单次请求、用量未知、待人工核对。真实模型待 Mac 安全配置。 [逐项验证](docs/VERIFICATION.md#2026-11-23-mac-本机验证)
+- 开发签名预检停在缺少 development team。待用户登录 Xcode、连接并信任设备、开启开发者模式，再核对设备系统、安装启动并读取 Watch 真实 HTTPS 诊断。随后才验配对、中文输入、离线保存和恢复去重。常开部署、TestFlight 与旧数据迁移待另行决定。

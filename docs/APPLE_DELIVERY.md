@@ -39,7 +39,13 @@ python3 --version
 
 先读 [AGENTS.md](../AGENTS.md)、[README](../README.md)、[产品设计](WATCH_PRODUCT_DESIGN.md)、[当前交接](../PROJECT_HANDOFF.md) 和 [验证记录](VERIFICATION.md)，再核对 [PR #1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1) 及 CI 日志。Node 使用 `24.19.0`。记录 Mac 的 macOS/Xcode 及 iPhone、Watch 型号和系统版本。项目最低部署目标为 iOS 17 和 watchOS 10，仍需按实际设备系统选择兼容的 Xcode 和平台支持。 [Apple Xcode 兼容表](https://developer.apple.com/xcode/system-requirements/)
 
-在仓库根目录运行 `npm test` 和 `python3 scripts/apple-tools-test.py`。`bash scripts/apple-check.sh` 复现已验证的无签名路径，会生成 `apple/PersonalResearch.xcodeproj`。脚本固定 `/Applications/Xcode_26.6.app/Contents/Developer`。如本机的兼容 Xcode 位于其他路径或版本不同，请先核对实际版本和 SDK，再显式处理本机工具路径，并记录差异。CI 的固定版本继续作为可复现基线。生成工程、构建输出和 `apple/delivery-local.json` 均被 Git 忽略。
+在仓库根目录运行 `npm test` 和 `python3 scripts/apple-tools-test.py`。`bash scripts/apple-check.sh` 默认使用 CI 固定的 `/Applications/Xcode_26.6.app/Contents/Developer`，并生成 `apple/PersonalResearch.xcodeproj`。本机使用已核对的 Xcode 27.2 时，显式选择工具目录：
+
+```sh
+APPLE_CHECK_DEVELOPER_DIR="$(xcode-select -p)" bash scripts/apple-check.sh
+```
+
+生成工程、构建输出和 `apple/delivery-local.json` 均被 Git 忽略。无签名脚本会重新生成工程，应在给生成工程配置本地签名前运行。
 
 ### 本机试用与 HTTPS 联调
 
@@ -52,27 +58,28 @@ PERSONAL_AGENT_DATA_DIR="$trial_dir" \
   PERSONAL_AGENT_STORAGE=sqlite \
   PERSONAL_AGENT_MODE=local \
   PERSONAL_AGENT_PORT=4319 \
+  PERSONAL_AGENT_THINKFLOW_BASE_URL=http://127.0.0.1:18437 \
   node server.mjs
 ```
 
-打开 `http://127.0.0.1:4319/owner`，从合成 TXT/Markdown 开始。云模型密钥由用户在管理页或私有密钥文件配置。Windows 代理的 `127.0.0.1:8317` 只在原机可用，Mac 需要实际可达的兼容接口。ThinkFlow 可单独配置，现有安装说明基于 Windows 或 Linux，macOS 原生安装未运行。后续完整试用见 [运行与恢复](CAPTURE_SETUP.md)。
+打开 `http://127.0.0.1:4319/owner`，从合成 TXT/Markdown 开始。在「资料与问题 → 云模型与预算」填写 Mac 可达的兼容服务地址与模型名，密钥由用户在该管理页或私有密钥文件配置。Windows 代理的 `127.0.0.1:8317` 只在原机可用。上例指向本轮在 Mac 独立启动的 ThinkFlow 端口，启动方式及实测范围见 [Mac 验证记录](VERIFICATION.md#2026-11-23-mac-本机验证)。
 
 Watch 使用可达且受设备信任的 HTTPS origin。Mac 本机网页的 loopback 地址仅供本机使用。优先选用已有的受控 HTTPS 测试环境。确需临时对外接入时，先准备独立合成数据环境与具体发布方案，由用户授权后启用。HTTPS 配置见 [运行与恢复](CAPTURE_SETUP.md#准备-https-后端) 及 [部署说明](../deploy/README.md)。先检查 `GET /api/v1/diagnostics` 返回版本和请求 ID，再从手表复测同一地址。诊断、配对和 Capture 可以在模型及 ThinkFlow 未配置时验证。
 
 ### 免费 Personal Team 本地试装
 
-1. 让用户在 Xcode 的 **Settings → Accounts** 登录自己的 Apple Account，选用其 **Personal Team**。连接与 Watch 配对的 iPhone，按 Xcode 提示信任 Mac，并在 iPhone 和 Watch 上启用开发者模式。界面名称随 Xcode 版本变化。 [Apple 设备配对](https://developer.apple.com/documentation/xcode/managing-your-simulated-and-physical-devices-in-device-hub) · [开发者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)
+1. 在 Xcode 27.2 的 **Settings → Apple Accounts** 登录自己的 Apple Account。用数据线连接并解锁与 Watch 配对的 iPhone，在 iPhone 上确认「信任」并输设备密码。在 Xcode 工具栏的运行目的地菜单选择 **Manage Devices**，通过 Device Hub 开始配对。iPhone 和 Watch 分别在 **设置 → 隐私与安全性 → 开发者模式** 开启，按提示重启并确认。首次配对开始后才可能出现开关。 [Apple 设备配对](https://developer.apple.com/documentation/xcode/managing-your-simulated-and-physical-devices-in-device-hub) · [开发者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)
 2. 打开生成的 `apple/PersonalResearch.xcodeproj`。用自动签名和同一 Personal Team 配置 `ResearchWatch` 及其 iOS wrapper。在本地生成工程中设置可注册的 `APP_BUNDLE_ID`、以它为前缀的 `WATCH_BUNDLE_ID`，以及实际 `API_BASE_URL`。保留 wrapper 和 Watch 的 bundle 关联。现有 `scripts/apple-configure.py` 也可由本地非秘密配置生成 xcconfig，开发构建只要求 `BUILD_KEYS`。确认 Xcode 实际解析出的 Team、bundle ID 和成品 Info.plist 中的 `APIBaseURL` 后再测试连接。首次只验证安装启动时可使用项目的默认占位地址，把 HTTPS 诊断留到真实地址配置后。
 3. 在 Xcode 选 `ResearchWatch` scheme 与真实 Watch 作为运行目的地，再 Run。分别记录自动签名、设备出现、安装和启动的实际结果。这个路径使用 Xcode 的开发签名，无需配置 App Store Connect 或 TestFlight。免费 profile 自签发起 7 天到期，届时需要重新构建安装。 [Apple 真机运行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) · [Personal Team 限制](https://developer.apple.com/help/account/basics/about-your-developer-account)
 4. 安装后在 Watch 打开 **研究随记 → 设置与连接 → 读取真实服务响应**，记录版本、request_id、设备系统和测试时间。再配对和用合成中文文字测试保存、飞行模式、退出重开、恢复后只出现一份记录。模型可达后验 Ask 退出后继续完成、引用和 Web 确认回写。按 [设计 §17.3](WATCH_PRODUCT_DESIGN.md#173-真机必测) 和本页真机表逐项记录。
 
-目前这台 Mac 的 Xcode 构建、Personal Team 签名和真机安装均未运行。优先记录遇到的第一个具体阻塞，例如 Xcode 不支持该设备系统、设备未配对、自动签名失败或 Watch 无法访问 HTTPS。继续完成不依赖该阻塞的桌面试用与回归。账号登录、设备信任和开发者模式由用户本人操作。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。
+本机 Xcode 27.2 的无签名构建已通过。预检停在 `ResearchWatch` 缺少 development team；检查时没有可用的签名身份或已连接真机。安装、启动及 Watch HTTPS 请求待实际设备验证。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。 [逐项实测结果](VERIFICATION.md#2026-11-23-mac-本机验证)
 
 ## M0A 已实现与真实构建证据
 
 - `apple/project.yml`：XcodeGen 2.46.0（提交 `8445e778451c7e44237b90281bde622d764b0084`），明确 Xcode 26.6、watchOS 10.0 Deployment Target 和共享 scheme。
 - `ResearchWatch`：现代单 target SwiftUI Watch App；`PersonalResearch`：Apple watch-only 分发所需 iOS wrapper stub，不创建 iPhone 可执行界面。没有旧式 WatchKit Extension 业务 target。
-- `scripts/apple-check.sh`：核心测试、无签名 Watch 模拟器 build、无签名 wrapper archive、归档实际产品检查分别执行；不是发布脚本。
+- `scripts/apple-check.sh`：核心测试、无签名 Watch 模拟器 build、无签名 wrapper archive、归档实际产品检查分别执行。默认使用 CI 的固定 Xcode，Mac 可显式指定工具目录。
 - `.github/workflows/watch-check.yml`：macos-26 runner、固定 Xcode 路径，只读仓库权限，无 Apple Secrets；保存日志和检查结果。
 - `.github/workflows/watch-testflight.yml`：已补受保护、仅手动的签名/导出/上传流程；默认未授权启用，只接受main上已审查SHA。实际Apple签名、上传、ASC处理与真机均未运行，不能视为M0B通过。
 

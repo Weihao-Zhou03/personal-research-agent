@@ -1,12 +1,35 @@
 # 验证记录
 
-2026-10-21；PR [#1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1)。最终程序源码为 `5e874f40a208ebee6f1fb11400e9950efaeb0828`。后续证据/文档提交不改变程序源码，不把设计目标、Mock、编译或IPA当作真机交付。
+PR [#1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1)。2026-10-21 的程序与 CI 基线为 `5e874f40a208ebee6f1fb11400e9950efaeb0828`。以下各轮结果按实际源码和运行环境记录。
 
-## 2026-11-23 Mac 接手
+## 2026-11-23 Mac 本机验证
 
-用户确认已有 Mac。接手步骤见 [Mac 接手与真机验证](APPLE_DELIVERY.md#mac-接手与真机验证)。沿用 PR #1 和 `codex/watch-capture`，先核对设备及 Xcode 兼容性，复现构建，然后尝试免费 Personal Team 本地签名和安装。桌面试用继续用隔离 SQLite 数据。
+克隆时工作区干净，分支和 PR #1 的 head 同为交接提交 `3ca88c7722fabd54233f7553f1cc061c94c8e8f1`，PR 开放，base 为 `main`。Mac 验证源码阶段为 `094e956392971c9108a4aa96404e73e9a8b7669a`。该阶段增加无签名脚本的显式 Xcode 路径覆盖和服务启动时的隔离 ThinkFlow 地址。核对了历史 [后端](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171787) 和 [Watch](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/39573171480) 的公开运行与步骤状态，均为成功；本次匿名日志 ZIP 请求返回 HTTP 403，历史归档检查 JSON 仍在仓库。
 
-本次交接在 Windows 整理并复核历史 CI 日志。Mac 本机 Apple SDK 构建、开发签名、安装、Watch HTTPS 诊断、TestFlight 和常开部署均未运行。既有 CI 和真实服务记录仍绑定原源码 SHA。交接提交的本地测试结果见 PR #1。
+| 检查 | Mac 实际结果 |
+| --- | --- |
+| macOS / Xcode / SDK | Apple silicon，macOS 27.2.1 (26B131)，Xcode 27.2 (27B52)，Swift 6.4.2，iOS/watchOS 27.2 真机及模拟器 SDK。项目最低部署版本仍为 iOS 17 / watchOS 10。 |
+| iPhone / Watch 真机版本 | 未发现已连接真机，型号、iOS/watchOS 版本、信任与开发者模式状态待核对。Xcode 列出的 watchOS 27.2 设备为模拟器。 |
+| 自动测试 | Node 24.19.0 / SQLite 3.53.3，135/135；Swift 30/30；Python 工具 17/17。均为 0 失败。公开词法基准 30/30 有答案题全部召回必要证据，Recall@8 为 1.0。 |
+| Watch 模拟器编译 | `BUILD SUCCEEDED`，XcodeGen 2.46.0。仅编译。 |
+| 无签名 iOS wrapper 归档 | `ARCHIVE SUCCEEDED`，结构、bundle 关联、版本及合成 HTTPS 配置 13/13 通过。检查 JSON SHA-256 为 `4de7719f5afe9ee99451c9b99a7030d67b5ac7bc0c76383738e2ed3c0d0d446e`。 |
+| 开发签名 | 对通用 watchOS 目的地启用签名预检，Xcode 退出 65，报 `Signing for "ResearchWatch" requires a development team`。钥匙串可用签名身份为 0。Personal Team 的注册、证书和 profile 尚未验证。 |
+| 真机安装与启动 | 未运行。工程已生成；真机不可选。 |
+| Watch 真实 HTTPS 诊断 | 未运行。Mac loopback HTTP 后端返回版本 `0.2.0`、request ID `req_33f5e902-d2ba-4062-ad6e-8ffb499df3ff`。 |
+| Watch 配对、中文输入、离线保存、恢复去重 | 分别未运行。待安装后先从 Watch 读 HTTPS 诊断，再按此顺序使用隔离合成资料。 |
+
+用 `APPLE_CHECK_DEVELOPER_DIR="$(xcode-select -p)" APPLE_CHECK_OUTPUT="$PWD/apple/Generated/check-mac" bash scripts/apple-check.sh` 完成无签名流程。首次直接执行默认命令停在缺少固定的 Xcode 26.6。CI 继续使用原有默认路径。生成工程和日志留在本机的忽略目录。
+
+### 桌面浏览器与评测复核
+
+使用隔离 SQLite、合成 TXT 和 Chromium 143.0.7499.4。Mac ThinkFlow 在 loopback 18437 用 Python 3.11.16 和 184 项锁定依赖启动，固定上游 `1eecae5d6e0423ee047702a5b9193ffb2f0ea6c3`，outputs 独立。使用 `THINKFLOW_SOURCE_ROOT=<固定上游路径> THINKFLOW_PORT=18437 <私有虚拟环境>/bin/python deploy/thinkflow-run-linux.py`，此 Mac 实测覆盖 ThinkFlow API。单独运行 `node scripts/smoke-thinkflow.mjs --base-url http://127.0.0.1:18437 --allow-write` 也通过了真实原文同步、两次不同修订读回及重复确认复用。
+
+1. 在浏览器登录、绑定 ThinkFlow 并同步所选合成资料、上传 TXT、提交 q13。后台从 loopback 的 OpenAI 兼容替身获得已保存的历史 q13 响应，本轮真实外部生成 0 次。
+2. 展开 E1 冻结原文，核对 Unicode 区间 `[0, 251)` 和正文 SHA-256。原文及完整报告均给出 300 份合成资料、单用户串行、50 次本地词法查询、中位 18 ms / P95 43 ms。历史简报标题和首条结论漏「单用户串行」；在浏览器补入两处并保存为修订 2。模型提示词与历史评测结果保留，真实模型重新生成待验证。
+3. 先取消原生确认弹窗，确认 POST 和 ThinkFlow 文档均为 0；再确认修订 2，浏览器显示「写回已核对」。从实际 ThinkFlow 读回唯一文档，核对修订文字和正文哈希。再次确认复用同一意图，文档仍为 1。
+4. q32 的历史评测在 90 秒后保存 `MODEL_REQUEST_UNKNOWN`，没有收到回答。Mac 用真实 loopback HTTP 收到 q32 请求后故意不返回，约 90,004 ms 后 UI 显示「待人工核对」和可能已产生用量。持久尝试记录为 1 次已发、0 次收到响应、`usage: unknown`、0 个结果。取消「明确重新研究」后刷新，状态与次数保留。此项覆盖超时处理，q32 的真实回答质量仍未知。
+
+浏览器证据文件在本机工作目录 `work/browser-mac-verification.json`，SHA-256 `c8f7312edcbfaa05413632bc85c6e12872f636e133c2d5396a71e56635ba37f3`。浏览器确认由自动化操作。真实模型需在 Mac 管理页配置可达的兼容服务；本轮未使用 Windows 代理、旧数据、付费或公网部署。设备准备与后续入口见 [Mac 接手与真机验证](APPLE_DELIVERY.md#mac-接手与真机验证)。
 
 ## 2026-10-26执行方式与安装条件更新
 
@@ -103,7 +126,7 @@ Apple历史证据：首轮run39562283553失败于Swift泛型函数内嵌类型�
 
 ## 后续验证与外部操作
 
-1. Codex 在 PR #1 自审并复核公开评测。重点检查 q13 条件遗漏与 q32 未知调用，完成隔离桌面端确认回写的网页操作验收。人工支持度核查仍待完成。
+1. Mac 配置可达的真实模型后，复跑同一隔离桌面流程并重新验 q13 简报。全评测人工支持度核查仍待完成。
 2. 选定常开Linux主机及真实域名/DNS/TLS，按部署说明安装服务/私有备份；在目标主机配置可达模型服务。云主机的127.0.0.1不能访问Windows代理。
 3. 用户确认目标 Watch 和 iPhone 的型号与系统，在 Xcode 登录 Apple Account、信任设备并启用开发者模式。先尝试本地试装，再按设计 §17.3 逐项记录。首次真实 HTTPS 响应至少记录版本和 request_id。
 4. 若用户后续选择 TestFlight，再准备 Team、bundle、ASC App、签名材料和受保护环境。由用户决定合并并另行授权指定 main SHA 的签名上传，按 [分发说明](APPLE_DELIVERY.md) 记录处理、合规和安装结果。

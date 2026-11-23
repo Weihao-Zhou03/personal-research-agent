@@ -48,6 +48,7 @@ node server.mjs
 | PERSONAL_AGENT_PUBLIC_ORIGIN | server 必填，根 HTTPS origin，不含路径、凭据、query |
 | PERSONAL_AGENT_TRUSTED_PROXIES | 显式可信 TLS 代理地址，逗号分隔；M1 只支持 loopback |
 | PERSONAL_AGENT_LISTEN_HOST | 默认127.0.0.1；local 拒绝非 loopback |
+| PERSONAL_AGENT_THINKFLOW_BASE_URL | 同机 ThinkFlow 的 HTTP 根地址，默认 `http://127.0.0.1:8437`；Mac 隔离联调可指定 `http://127.0.0.1:18437` |
 | PERSONAL_AGENT_MODEL_BASE_URL | 新Ask的云端兼容API根地址；远程HTTPS，同机代理可HTTP |
 | PERSONAL_AGENT_MODEL | 新Ask模型名称，例如gpt-6-luna |
 | PERSONAL_AGENT_MODEL_KEY_FILE | 服务账户可读的私有密钥文件；不提交Git |
