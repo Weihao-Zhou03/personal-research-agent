@@ -73,7 +73,7 @@ Watch 使用可达且受设备信任的 HTTPS origin。Mac 本机网页的 loopb
 3. 在 Xcode 选 `ResearchWatch` scheme 与真实 Watch 作为运行目的地，再 Run。分别记录自动签名、设备出现、安装和启动的实际结果。这个路径使用 Xcode 的开发签名，无需配置 App Store Connect 或 TestFlight。免费 profile 自签发起 7 天到期，届时需要重新构建安装。 [Apple 真机运行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) · [Personal Team 限制](https://developer.apple.com/help/account/basics/about-your-developer-account)
 4. 安装后在 Watch 打开 **研究随记 → 设置与连接 → 读取真实服务响应**，记录版本、request_id、设备系统和测试时间。再配对和用合成中文文字测试保存、飞行模式、退出重开、恢复后只出现一份记录。模型可达后验 Ask 退出后继续完成、引用和 Web 确认回写。按 [设计 §17.3](WATCH_PRODUCT_DESIGN.md#173-真机必测) 和本页真机表逐项记录。
 
-本机 Xcode 27.2 的无签名构建已通过。iPhone 经 USB、Apple Watch 经本地网络接入，两台设备均已配对并开启开发者模式。Watch 可作为 `ResearchWatch` 的真机目的地。签名预检停在缺少 development team；安装、启动及 Watch HTTPS 请求待实测。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。 [逐项实测结果](VERIFICATION.md#2026-11-23-mac-本机验证)
+本机 Xcode 27.2 已通过无签名构建。iPhone 经 USB、Apple Watch 经本地网络接入，两台设备均已配对并开启开发者模式。免费 Personal Team 开发签名、真机安装和启动已通过。首次 `codesign` 访问私钥时，用户在 macOS 系统弹窗输入「登录」钥匙串密码并点 **允许**。已安装包使用占位地址，待配置设备可达的受信 HTTPS 测试地址并重新安装。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。 [逐项实测结果](VERIFICATION.md#2026-11-23-mac-本机验证)
 
 ## M0A 已实现与真实构建证据
 

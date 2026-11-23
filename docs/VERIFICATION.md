@@ -14,14 +14,17 @@ PR [#1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1)。2026-
 | 自动测试 | Node 24.19.0 / SQLite 3.53.3，135/135；Swift 30/30；Python 工具 17/17。均为 0 失败。公开词法基准 30/30 有答案题全部召回必要证据，Recall@8 为 1.0。 |
 | Watch 模拟器编译 | `BUILD SUCCEEDED`，XcodeGen 2.46.0。仅编译。 |
 | 无签名 iOS wrapper 归档 | `ARCHIVE SUCCEEDED`，结构、bundle 关联、版本及合成 HTTPS 配置 13/13 通过。检查 JSON SHA-256 为 `4de7719f5afe9ee99451c9b99a7030d67b5ac7bc0c76383738e2ed3c0d0d446e`。 |
-| 开发签名 | 对通用 watchOS 目的地启用签名预检，Xcode 退出 65，报 `Signing for "ResearchWatch" requires a development team`。Watch 接入后复查，`ResearchWatch` 仍未选 Team，钥匙串可用签名身份为 0。Personal Team 的注册、证书和 profile 尚未验证。 |
-| 真机安装与启动 | 未运行。Watch 真机已可选，安装等待开发签名。 |
-| Watch 真实 HTTPS 诊断 | 未运行。Mac loopback HTTP 后端返回版本 `0.2.0`、request ID `req_33f5e902-d2ba-4062-ad6e-8ffb499df3ff`。 |
-| Watch 配对、中文输入、离线保存、恢复去重 | 分别未运行。待安装后先从 Watch 读 HTTPS 诊断，再按此顺序使用隔离合成资料。 |
+| 开发签名 | 预检最初因缺少 Team 退出 65。选择 Personal Team 后，首次 `CodeSign` 因钥匙串访问被拒绝返回 `errSecInternalComponent`；用户在 macOS 弹窗允许后重试，`BUILD SUCCEEDED`，`codesign --verify --strict` 通过。开发 profile 包含目标 Watch，签发与到期相隔 7 天，到期时间为 2026-11-30 12:34 EST。 |
+| 真机安装 | `xcrun devicectl device install app` 返回 success；目标是 Apple Watch Series 12，开发包版本 `0.2.0`。安装后的独立应用列表查询超时，安装结果来自设备返回的安装回执。 |
+| 真机启动 | `xcrun devicectl device process launch` 返回 success 并给出应用进程。 |
+| Watch 真实 HTTPS 诊断 | 未运行。已安装开发包使用占位 origin，待配置受信且设备可达的测试地址。Mac loopback HTTP 返回版本 `0.2.0`、request ID `req_33f5e902-d2ba-4062-ad6e-8ffb499df3ff`。 |
+| Watch 配对、中文输入、离线保存、恢复去重 | 分别未运行。先从 Watch 读 HTTPS 诊断，再按此顺序使用隔离合成资料。 |
 
 用 `APPLE_CHECK_DEVELOPER_DIR="$(xcode-select -p)" APPLE_CHECK_OUTPUT="$PWD/apple/Generated/check-mac" bash scripts/apple-check.sh` 完成无签名流程。首次直接执行默认命令停在缺少固定的 Xcode 26.6。CI 继续使用原有默认路径。生成工程和日志留在本机的忽略目录。
 
 本轮已推送的验证记录阶段为 `44389401a42519a5bbb5a2bacdf5e5ee79f9664a`，对应的 [后端 CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/45225251333) 和 [Watch 无签名 CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/45225251338) 均通过。
+
+Watch 已签名、安装和启动的构建来自 `fa33dbd3edc932905df836ee4f9eddc9f3d19986`，使用 `ResearchWatch` Debug、自动签名和本机唯一的试用 bundle ID。签名记录和设备回执保留在本机工作目录；团队和设备标识留在本机。此次只安装 Watch 开发应用，iOS wrapper 证据仍为上面的无签名归档。
 
 ### 桌面浏览器与评测复核
 
