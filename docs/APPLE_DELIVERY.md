@@ -68,12 +68,12 @@ Watch 使用可达且受设备信任的 HTTPS origin。Mac 本机网页的 loopb
 
 ### 免费 Personal Team 本地试装
 
-1. 在 Xcode 27.2 的 **Settings → Apple Accounts** 登录自己的 Apple Account。用数据线连接并解锁与 Watch 配对的 iPhone，在 iPhone 上确认「信任」并输设备密码。在 Xcode 工具栏的运行目的地菜单选择 **Manage Devices**，通过 Device Hub 开始配对。iPhone 和 Watch 分别在 **设置 → 隐私与安全性 → 开发者模式** 开启，按提示重启并确认。首次配对开始后才可能出现开关。 [Apple 设备配对](https://developer.apple.com/documentation/xcode/managing-your-simulated-and-physical-devices-in-device-hub) · [开发者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)
+1. 在 Xcode 27.2 的 **Settings → Apple Accounts** 登录自己的 Apple Account。用数据线连接并解锁与 Watch 配对的 iPhone，在 iPhone 上确认「信任」并输设备密码。Xcode 顶部菜单 **Product → Destination → Manage Devices…** 会打开 Device Hub。先完成 iPhone 配对，再用 Device Hub 的 **+ → Pair Nearby Device…** 查找支持无线配对的 Watch。iPhone 和 Watch 分别在 **设置 → 隐私与安全性 → 开发者模式** 开启，按提示重启并确认。首次配对开始后才可能出现开关。 [Apple 设备配对](https://developer.apple.com/documentation/xcode/managing-your-simulated-and-physical-devices-in-device-hub) · [开发者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)
 2. 打开生成的 `apple/PersonalResearch.xcodeproj`。用自动签名和同一 Personal Team 配置 `ResearchWatch` 及其 iOS wrapper。在本地生成工程中设置可注册的 `APP_BUNDLE_ID`、以它为前缀的 `WATCH_BUNDLE_ID`，以及实际 `API_BASE_URL`。保留 wrapper 和 Watch 的 bundle 关联。现有 `scripts/apple-configure.py` 也可由本地非秘密配置生成 xcconfig，开发构建只要求 `BUILD_KEYS`。确认 Xcode 实际解析出的 Team、bundle ID 和成品 Info.plist 中的 `APIBaseURL` 后再测试连接。首次只验证安装启动时可使用项目的默认占位地址，把 HTTPS 诊断留到真实地址配置后。
 3. 在 Xcode 选 `ResearchWatch` scheme 与真实 Watch 作为运行目的地，再 Run。分别记录自动签名、设备出现、安装和启动的实际结果。这个路径使用 Xcode 的开发签名，无需配置 App Store Connect 或 TestFlight。免费 profile 自签发起 7 天到期，届时需要重新构建安装。 [Apple 真机运行](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices) · [Personal Team 限制](https://developer.apple.com/help/account/basics/about-your-developer-account)
 4. 安装后在 Watch 打开 **研究随记 → 设置与连接 → 读取真实服务响应**，记录版本、request_id、设备系统和测试时间。再配对和用合成中文文字测试保存、飞行模式、退出重开、恢复后只出现一份记录。模型可达后验 Ask 退出后继续完成、引用和 Web 确认回写。按 [设计 §17.3](WATCH_PRODUCT_DESIGN.md#173-真机必测) 和本页真机表逐项记录。
 
-本机 Xcode 27.2 的无签名构建已通过。预检停在 `ResearchWatch` 缺少 development team；检查时没有可用的签名身份或已连接真机。安装、启动及 Watch HTTPS 请求待实际设备验证。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。 [逐项实测结果](VERIFICATION.md#2026-11-23-mac-本机验证)
+本机 Xcode 27.2 的无签名构建已通过。预检停在 `ResearchWatch` 缺少 development team；检查时没有可用的签名身份。iPhone 已通过 USB 配对并开启开发者模式，Watch 等待连接。安装、启动及 Watch HTTPS 请求待实际设备验证。签名资料、账号信息、设备标识、原 Windows 数据及代理凭据留在私有环境。 [逐项实测结果](VERIFICATION.md#2026-11-23-mac-本机验证)
 
 ## M0A 已实现与真实构建证据
 

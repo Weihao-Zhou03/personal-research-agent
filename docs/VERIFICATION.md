@@ -9,16 +9,19 @@ PR [#1](https://github.com/Weihao-Zhou03/personal-research-agent/pull/1)。2026-
 | 检查 | Mac 实际结果 |
 | --- | --- |
 | macOS / Xcode / SDK | Apple silicon，macOS 27.2.1 (26B131)，Xcode 27.2 (27B52)，Swift 6.4.2，iOS/watchOS 27.2 真机及模拟器 SDK。项目最低部署版本仍为 iOS 17 / watchOS 10。 |
-| iPhone / Watch 真机版本 | 未发现已连接真机，型号、iOS/watchOS 版本、信任与开发者模式状态待核对。Xcode 列出的 watchOS 27.2 设备为模拟器。 |
+| iPhone 真机 | iPhone 15 Pro Max，iOS 27.3 (24C5037i)。USB 连接，CoreDevice 显示已配对、开发者模式已开启、开发服务可用。 |
+| Apple Watch 真机 | Device Hub 的 `Pair Nearby Device…` 已打开。尚无可用真机目的地，型号、watchOS 和开发者模式待核对。已列出的 watchOS 27.2 设备为模拟器。 |
 | 自动测试 | Node 24.19.0 / SQLite 3.53.3，135/135；Swift 30/30；Python 工具 17/17。均为 0 失败。公开词法基准 30/30 有答案题全部召回必要证据，Recall@8 为 1.0。 |
 | Watch 模拟器编译 | `BUILD SUCCEEDED`，XcodeGen 2.46.0。仅编译。 |
 | 无签名 iOS wrapper 归档 | `ARCHIVE SUCCEEDED`，结构、bundle 关联、版本及合成 HTTPS 配置 13/13 通过。检查 JSON SHA-256 为 `4de7719f5afe9ee99451c9b99a7030d67b5ac7bc0c76383738e2ed3c0d0d446e`。 |
 | 开发签名 | 对通用 watchOS 目的地启用签名预检，Xcode 退出 65，报 `Signing for "ResearchWatch" requires a development team`。钥匙串可用签名身份为 0。Personal Team 的注册、证书和 profile 尚未验证。 |
-| 真机安装与启动 | 未运行。工程已生成；真机不可选。 |
+| 真机安装与启动 | 未运行。工程已生成；Watch 真机尚不可选。 |
 | Watch 真实 HTTPS 诊断 | 未运行。Mac loopback HTTP 后端返回版本 `0.2.0`、request ID `req_33f5e902-d2ba-4062-ad6e-8ffb499df3ff`。 |
 | Watch 配对、中文输入、离线保存、恢复去重 | 分别未运行。待安装后先从 Watch 读 HTTPS 诊断，再按此顺序使用隔离合成资料。 |
 
 用 `APPLE_CHECK_DEVELOPER_DIR="$(xcode-select -p)" APPLE_CHECK_OUTPUT="$PWD/apple/Generated/check-mac" bash scripts/apple-check.sh` 完成无签名流程。首次直接执行默认命令停在缺少固定的 Xcode 26.6。CI 继续使用原有默认路径。生成工程和日志留在本机的忽略目录。
+
+本轮已推送的验证记录阶段为 `44389401a42519a5bbb5a2bacdf5e5ee79f9664a`，对应的 [后端 CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/45225251333) 和 [Watch 无签名 CI](https://github.com/Weihao-Zhou03/personal-research-agent/actions/runs/45225251338) 均通过。
 
 ### 桌面浏览器与评测复核
 
